@@ -1,0 +1,220 @@
+.multi-select {
+  position: relative;
+  width: 100%;
+}
+
+.multi-select-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #D1D5DB;
+  margin-bottom: 0.4rem;
+  letter-spacing: 0.01em;
+}
+
+.multi-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 1rem;
+  background: #1F2937;
+  border: 2px solid #374151;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-height: auto;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.multi-select-trigger:hover:not(.disabled) {
+  border-color: #DC2626;
+}
+
+.multi-select-trigger.open {
+  border-color: #DC2626;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.2);
+}
+
+.multi-select-trigger.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.multi-select-selected {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.multi-select-placeholder {
+  color: #9CA3AF;
+}
+
+.multi-select-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.multi-select-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  background: rgba(220, 38, 38, 0.2);
+  color: #FECACA;
+  border: 1px solid rgba(220, 38, 38, 0.4);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.multi-select-tag-remove {
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s ease;
+}
+
+.multi-select-tag-remove:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.multi-select-tag-more {
+  color: #D1D5DB;
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+.multi-select-arrow {
+  color: #9CA3AF;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+  transition: transform 0.2s ease;
+}
+
+.multi-select-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 0.25rem;
+  background: #1A1A1A;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  max-height: 300px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.multi-select-search {
+  padding: 0.75rem;
+  border-bottom: 1px solid #374151;
+}
+
+.multi-select-search-input {
+  width: 100%;
+  padding: 0.5rem;
+  background: #000000;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  color: #FFFFFF;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.multi-select-search-input:focus {
+  outline: none;
+  border-color: #DC2626;
+}
+
+.multi-select-options {
+  overflow-y: auto;
+  max-height: 250px;
+}
+
+.multi-select-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.multi-select-option:hover {
+  background: #000000;
+}
+
+.multi-select-option.selected {
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.multi-select-checkbox {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #374151;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #DC2626;
+  font-weight: bold;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.multi-select-option.selected .multi-select-checkbox {
+  background: #DC2626;
+  border-color: #DC2626;
+  color: white;
+}
+
+.multi-select-option-label {
+  color: #FFFFFF;
+  flex: 1;
+}
+
+.multi-select-no-results {
+  padding: 1.5rem;
+  text-align: center;
+  color: #9CA3AF;
+  font-size: 0.9rem;
+}
+
+/* Scrollbar personalizado */
+.multi-select-options::-webkit-scrollbar {
+  width: 8px;
+}
+
+.multi-select-options::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+.multi-select-options::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 4px;
+}
+
+.multi-select-options::-webkit-scrollbar-thumb:hover {
+  background: #4B5563;
+}
+

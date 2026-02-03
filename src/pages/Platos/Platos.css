@@ -1,0 +1,796 @@
+.platos {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  background: #000000;
+  min-height: 100vh;
+}
+
+.platos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.platos-header-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.platos-select-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.platos-select-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #D1D5DB;
+}
+
+.platos-select {
+  padding: 0.75rem 1rem;
+  min-width: 200px;
+  background: #1A1A1A;
+  border: 1px solid #374151;
+  border-radius: 12px;
+  color: #FFFFFF;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.platos-select:focus {
+  outline: none;
+  border-color: #DC2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.platos-local-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: 12px;
+  color: #DC2626;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.platos-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #FFFFFF 0%, #DC2626 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0 0 0.5rem 0;
+  letter-spacing: -0.02em;
+}
+
+.platos-subtitle {
+  color: #D1D5DB;
+  font-size: 1rem;
+  margin: 0;
+  font-weight: 400;
+}
+
+.platos-icon {
+  font-size: 1.2rem;
+}
+
+.platos-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.platos-btn-create,
+.platos-btn-primary {
+  background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+}
+
+.platos-btn-create:hover,
+.platos-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.5);
+  background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+}
+
+.platos-btn-secondary {
+  background: #1F2937;
+  color: #D1D5DB;
+  border: 1px solid #374151;
+}
+
+.platos-btn-secondary:hover {
+  background: #374151;
+  border-color: #6B7280;
+}
+
+.platos-btn-small {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+.platos-error {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(220, 38, 38, 0.15);
+  color: #DC2626;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.platos-loading,
+.platos-empty {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #D1D5DB;
+}
+
+.platos-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.platos-empty .platos-icon {
+  font-size: 4rem;
+  opacity: 0.5;
+}
+
+/* Filtros */
+.platos-filters {
+  background: #1A1A1A;
+  border: 1px solid #374151;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.platos-filters-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.platos-filter-group {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.platos-filter-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #D1D5DB;
+}
+
+.platos-filter-input,
+.platos-filter-select {
+  padding: 0.75rem;
+  background: #000000;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  color: #FFFFFF;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.platos-filter-input:focus,
+.platos-filter-select:focus {
+  outline: none;
+  border-color: #DC2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.platos-btn-escandallo {
+  background: #1F2937;
+  color: #D1D5DB;
+  border: 1px solid #374151;
+}
+
+.platos-btn-escandallo:hover {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: #10B981;
+  color: #10B981;
+}
+
+/* Grid */
+.platos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.platos-card {
+  background: #1A1A1A;
+  border: 2px solid #374151;
+  border-radius: 16px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.platos-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.platos-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #374151;
+}
+
+.platos-card-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin: 0;
+  flex: 1;
+}
+
+.platos-card-badge {
+  padding: 0.375rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.platos-card-badge-activo {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10B981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.platos-card-badge-inactivo {
+  background: rgba(156, 163, 175, 0.15);
+  color: #9CA3AF;
+  border: 1px solid rgba(156, 163, 175, 0.3);
+}
+
+.platos-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.platos-card-desc {
+  font-size: 0.95rem;
+  color: #9CA3AF;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.platos-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.platos-card-label {
+  font-size: 0.875rem;
+  color: #9CA3AF;
+  font-weight: 500;
+}
+
+.platos-card-value {
+  font-size: 0.95rem;
+  color: #D1D5DB;
+  font-weight: 500;
+}
+
+.platos-card-precio {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #10B981;
+}
+
+.platos-card-actions {
+  display: flex;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid #374151;
+}
+
+.platos-card-btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.platos-card-btn-edit {
+  background: #1F2937;
+  color: #D1D5DB;
+  border: 1px solid #374151;
+}
+
+.platos-card-btn-edit:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3B82F6;
+  color: #3B82F6;
+}
+
+.platos-card-btn-delete {
+  background: #1F2937;
+  color: #D1D5DB;
+  border: 1px solid #374151;
+}
+
+.platos-card-btn-delete:hover {
+  background: rgba(220, 38, 38, 0.15);
+  border-color: #DC2626;
+  color: #DC2626;
+}
+
+.platos-card-btn-escandallo {
+  background: #1F2937;
+  color: #D1D5DB;
+  border: 1px solid #374151;
+}
+
+.platos-card-btn-escandallo:hover {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: #10B981;
+  color: #10B981;
+}
+
+/* Modal */
+.platos-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.platos-modal {
+  background: #1A1A1A;
+  border: 1px solid #374151;
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 560px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.platos-modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin: 0 0 1.5rem 0;
+}
+
+.platos-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.platos-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.platos-form-group label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #D1D5DB;
+}
+
+.platos-form-group input,
+.platos-form-group textarea,
+.platos-form-group select {
+  padding: 0.75rem;
+  background: #000000;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  color: #FFFFFF;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.platos-form-group input:focus,
+.platos-form-group textarea:focus,
+.platos-form-group select:focus {
+  outline: none;
+  border-color: #DC2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.platos-form-group textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.platos-form-check label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.platos-form-check input[type="checkbox"] {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: #DC2626;
+}
+
+/* Ingredientes en formulario */
+.platos-ingredients {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.platos-ingredients-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.platos-ingredients-header label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #D1D5DB;
+  margin: 0;
+}
+
+.platos-ingredients-loading {
+  font-size: 0.875rem;
+  color: #9CA3AF;
+  margin: 0;
+}
+
+.platos-ingredient-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.platos-ingredient-select {
+  flex: 1;
+  min-width: 140px;
+  padding: 0.5rem 0.75rem;
+  background: #000000;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  color: #FFFFFF;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.platos-ingredient-select:focus {
+  outline: none;
+  border-color: #DC2626;
+}
+
+.platos-ingredient-qty {
+  width: 5rem;
+  padding: 0.5rem 0.75rem;
+  background: #000000;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  color: #FFFFFF;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.platos-ingredient-qty:focus {
+  outline: none;
+  border-color: #DC2626;
+}
+
+.platos-ingredient-unit {
+  font-size: 0.85rem;
+  color: #9CA3AF;
+  min-width: 2.5rem;
+}
+
+.platos-ingredient-remove {
+  padding: 0.35rem 0.6rem;
+  background: rgba(220, 38, 38, 0.2);
+  border: 1px solid rgba(220, 38, 38, 0.4);
+  border-radius: 8px;
+  color: #DC2626;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.platos-ingredient-remove:hover {
+  background: rgba(220, 38, 38, 0.3);
+}
+
+/* Ingredientes en tarjeta */
+.platos-card-ingredients {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #374151;
+}
+
+.platos-ingredients-list {
+  margin: 0.25rem 0 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.9rem;
+  color: #9CA3AF;
+  line-height: 1.5;
+}
+
+.platos-ingredients-list li {
+  margin-bottom: 0.25rem;
+}
+
+.platos-form-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.platos-form-actions .platos-btn {
+  flex: 1;
+}
+
+/* Modal escandallo */
+.platos-escandallo-overlay {
+  align-items: flex-start;
+  padding: 2rem 1rem 1rem;
+  overflow-y: auto;
+}
+
+.platos-escandallo-modal {
+  max-width: 720px;
+  margin: auto;
+}
+
+.platos-escandallo-print {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.platos-escandallo-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.platos-escandallo-content {
+  overflow-x: auto;
+}
+
+.platos-escandallo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.platos-escandallo-table th,
+.platos-escandallo-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #374151;
+}
+
+.platos-escandallo-table th {
+  background: #1F2937;
+  color: #D1D5DB;
+  font-weight: 600;
+}
+
+.platos-escandallo-table td {
+  color: #E5E7EB;
+}
+
+.platos-escandallo-table tfoot .platos-escandallo-total td {
+  font-weight: 700;
+  background: rgba(16, 185, 129, 0.1);
+  color: #10B981;
+  border-bottom: none;
+  padding-top: 0.75rem;
+}
+
+.platos-escandallo-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: #1A1A1A;
+  border-radius: 12px;
+  border: 1px solid #374151;
+}
+
+.platos-escandallo-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1rem;
+}
+
+.platos-escandallo-margen {
+  font-weight: 600;
+  color: #10B981;
+  padding-top: 0.5rem;
+  border-top: 1px solid #374151;
+}
+
+.platos-escandallo-empty {
+  color: #9CA3AF;
+  margin: 0;
+  padding: 1rem;
+}
+
+.platos-escandallo-empty-cell {
+  color: #9CA3AF;
+  font-style: italic;
+}
+
+.platos-escandallo-table-filtered th:nth-child(1),
+.platos-escandallo-table-filtered td:nth-child(1) {
+  min-width: 140px;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .platos-escandallo-overlay {
+    background: #fff;
+    padding: 0;
+    position: static;
+  }
+
+  .platos-escandallo-modal {
+    box-shadow: none;
+    border: none;
+    max-width: 100%;
+  }
+
+  .platos-escandallo-table th {
+    background: #f3f4f6;
+    color: #111;
+  }
+
+  .platos-escandallo-table td {
+    color: #333;
+  }
+
+  .platos-escandallo-table tfoot .platos-escandallo-total td {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  .platos-escandallo-summary {
+    background: #f9fafb;
+    border-color: #e5e7eb;
+  }
+
+  .platos-escandallo-margen {
+    color: #065f46;
+    border-color: #e5e7eb;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .platos-escandallo-overlay,
+  .platos-escandallo-overlay * {
+    visibility: visible;
+  }
+
+  .platos-escandallo-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .platos {
+    padding: 1.5rem;
+  }
+
+  .platos-title {
+    font-size: 2rem;
+  }
+
+  .platos-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .platos-header-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .platos-select {
+    min-width: 100%;
+  }
+
+  .platos-btn-create {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .platos-filters-row {
+    flex-direction: column;
+  }
+
+  .platos-filter-group {
+    min-width: unset;
+  }
+
+  .platos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .platos-card-actions {
+    flex-direction: column;
+  }
+
+  .platos-card-btn {
+    width: 100%;
+  }
+}

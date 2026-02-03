@@ -1,0 +1,9 @@
+# Configuración de Edge Functions
+# verify_jwt=false evita que el gateway rechace la petición (401) por JWT.
+# Las funciones create-user y delete-user validan el JWT y el rol admin internamente.
+
+[functions.create-user]
+verify_jwt = false
+
+[functions.delete-user]
+verify_jwt = false

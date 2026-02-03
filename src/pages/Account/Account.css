@@ -1,0 +1,236 @@
+.account-page {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  background: #000000;
+  min-height: 100vh;
+}
+
+.account-container-page {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.account-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.account-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 auto 1.5rem;
+  box-shadow: 0 8px 24px rgba(220, 38, 38, 0.4);
+}
+
+.account-title {
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #FFFFFF 0%, #DC2626 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0 0 0.5rem 0;
+  letter-spacing: -0.02em;
+}
+
+.account-subtitle {
+  color: #D1D5DB;
+  font-size: 1rem;
+  margin: 0;
+  font-weight: 400;
+}
+
+.account-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #1F2937;
+  border-radius: 16px;
+  border: 1px solid #374151;
+}
+
+.account-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.account-info-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #9CA3AF;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.account-info-value {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #FFFFFF;
+  word-break: break-all;
+}
+
+.account-id {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  color: #DC2626;
+}
+
+/* Configuración de sesión */
+.account-settings {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: #1F2937;
+  border-radius: 16px;
+  border: 1px solid #374151;
+}
+
+.account-settings-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin: 0 0 1.5rem 0;
+}
+
+.account-message {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.account-message-success {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10B981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.account-message-error {
+  background: rgba(220, 38, 38, 0.15);
+  color: #DC2626;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+}
+
+.account-icon {
+  font-size: 1.2rem;
+}
+
+.account-setting-item {
+  margin-bottom: 1rem;
+}
+
+.account-setting-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.account-setting-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.account-setting-label {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #FFFFFF;
+  cursor: pointer;
+  flex: 1;
+}
+
+.account-setting-description {
+  font-size: 0.875rem;
+  color: #9CA3AF;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Toggle switch */
+.account-toggle {
+  position: relative;
+  display: inline-block;
+  width: 52px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.account-toggle-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.account-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #374151;
+  transition: 0.3s;
+  border-radius: 28px;
+}
+
+.account-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.account-toggle-input:checked + .account-toggle-slider {
+  background-color: #10B981;
+}
+
+.account-toggle-input:checked + .account-toggle-slider:before {
+  transform: translateX(24px);
+}
+
+.account-toggle-input:disabled + .account-toggle-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.account-toggle-input:focus + .account-toggle-slider {
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .account-page {
+    padding: 1rem;
+  }
+
+  .account-title {
+    font-size: 1.75rem;
+  }
+
+  .account-avatar {
+    width: 64px;
+    height: 64px;
+    font-size: 1.5rem;
+  }
+}
+
