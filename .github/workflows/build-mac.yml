@@ -1,5 +1,8 @@
 # Compila la app Electron para macOS (sin necesidad de tener un Mac)
 # Los instaladores se descargan desde la pestaña "Actions" → ejecución → Artifacts
+#
+# Requiere un secreto en el repo: GH_TOKEN (tu Personal Access Token de GitHub)
+# Repo → Settings → Secrets and variables → Actions → New repository secret
 
 name: Build macOS
 
@@ -13,7 +16,7 @@ jobs:
   build-mac:
     runs-on: macos-latest
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
