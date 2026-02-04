@@ -26,6 +26,8 @@ jobs:
         run: npm ci
 
       - name: Build for macOS
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run electron:build:mac
 
       - name: Upload macOS artifacts
