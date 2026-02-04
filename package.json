@@ -50,6 +50,7 @@
   "build": {
     "appId": "com.cocostock.app",
     "productName": "CocoStock",
+    "publish": null,
     "directories": {
       "output": "release"
     },
