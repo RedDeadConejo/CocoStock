@@ -1,0 +1,35 @@
+# Compila la app Electron para macOS (sin necesidad de tener un Mac)
+# Los instaladores se descargan desde la pestaña "Actions" → ejecución → Artifacts
+
+name: Build macOS
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:  # Permite lanzar manualmente desde GitHub Actions
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for macOS
+        run: npm run electron:build:mac
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: CocoStock-macOS
+          path: release/

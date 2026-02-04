@@ -3,18 +3,114 @@
  * Vista de perfil de usuario
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getSessionPreferences, setKeepSessionActive } from '../../utils/sessionPreferences';
+import { getLatestRelease } from '../../services/updater';
+import { APP_VERSION } from '../../constants/version';
 import './Account.css';
+
+function isElectron() {
+  return typeof window !== 'undefined' && window.electronAPI?.updater;
+}
 
 function Account({ session }) {
   const [keepSessionActive, setKeepSessionActiveState] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
+  // Actualizaciones (solo Electron)
+  const [updateCheckLoading, setUpdateCheckLoading] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState(null);
+  const [downloadProgress, setDownloadProgress] = useState(null);
+  const [downloadedPath, setDownloadedPath] = useState(null);
+  const [downloadError, setDownloadError] = useState(null);
+  const progressIntervalRef = useRef(null);
+
   useEffect(() => {
     const prefs = getSessionPreferences();
     setKeepSessionActiveState(prefs.keepSessionActive);
+  }, []);
+
+  const handleCheckUpdates = async () => {
+    if (!isElectron()) return;
+    setUpdateCheckLoading(true);
+    setUpdateInfo(null);
+    setMessage('');
+    try {
+      const result = await getLatestRelease();
+      if (result.error && !result.available) {
+        setMessage('No se pudo comprobar actualizaciones. ' + (result.error || ''));
+      } else if (result.available) {
+        setUpdateInfo(result);
+      } else {
+        setMessage('Tienes la última versión instalada (' + APP_VERSION + ').');
+      }
+    } catch (err) {
+      setMessage('Error al comprobar actualizaciones: ' + err.message);
+    } finally {
+      setUpdateCheckLoading(false);
+    }
+  };
+
+  const handleDownloadUpdate = async () => {
+    if (!isElectron() || !updateInfo?.downloadUrl) return;
+    setDownloadError(null);
+    setDownloadedPath(null);
+    setDownloadProgress({ percent: 0, bytesDownloaded: 0, totalBytes: 0 });
+    const api = window.electronAPI.updater;
+    const downloadPromise = api.download(updateInfo.downloadUrl, updateInfo.filePath || null);
+    progressIntervalRef.current = setInterval(async () => {
+      const p = await api.getProgress();
+      setDownloadProgress(p);
+    }, 300);
+    try {
+      const result = await downloadPromise;
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      setDownloadProgress(null);
+      if (result.success && result.localPath) {
+        setDownloadedPath(result.localPath);
+      } else {
+        setDownloadError(result.error || 'Error en la descarga');
+      }
+    } catch (err) {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      setDownloadProgress(null);
+      setDownloadError(err.message || 'Error en la descarga');
+    }
+  };
+
+  const handleCancelDownload = async () => {
+    if (window.electronAPI?.updater?.cancelDownload) {
+      await window.electronAPI.updater.cancelDownload();
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      setDownloadProgress(null);
+      setDownloadError('Descarga cancelada');
+    }
+  };
+
+  const handleOpenInstaller = async () => {
+    if (!isElectron() || !downloadedPath) return;
+    try {
+      await window.electronAPI.updater.openInstaller(downloadedPath);
+      setMessage('Se ha abierto el instalador. Puedes cerrar la aplicación para instalar la actualización.');
+    } catch (err) {
+      setMessage('Error al abrir el instalador: ' + err.message);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    };
   }, []);
 
   const handleToggleKeepSession = async (enabled) => {
@@ -106,6 +202,88 @@ function Account({ session }) {
             </div>
           </div>
         </div>
+
+        {isElectron() && (
+          <div className="account-settings account-updates-section">
+            <h2 className="account-settings-title">📦 Actualizaciones</h2>
+            <p className="account-setting-description" style={{ marginBottom: '1rem' }}>
+              Versión instalada: <strong>{APP_VERSION}</strong>
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="account-btn account-btn-secondary"
+                onClick={handleCheckUpdates}
+                disabled={updateCheckLoading}
+              >
+                {updateCheckLoading ? 'Buscando...' : 'Buscar actualizaciones'}
+              </button>
+            </div>
+
+            {updateInfo && updateInfo.available && (
+              <div className="account-update-available">
+                <p className="account-update-version">
+                  Nueva versión disponible: <strong>{updateInfo.latestVersion}</strong>
+                </p>
+                {updateInfo.releaseNotes && (
+                  <p className="account-update-notes">{updateInfo.releaseNotes}</p>
+                )}
+                {!downloadProgress && !downloadedPath && !downloadError && (
+                  <button
+                    type="button"
+                    className="account-btn account-btn-primary"
+                    onClick={handleDownloadUpdate}
+                  >
+                    Descargar actualización
+                  </button>
+                )}
+                {downloadProgress != null && (
+                  <>
+                    <div className="account-update-progress-bar">
+                      <div
+                        className="account-update-progress-fill"
+                        style={{ width: `${downloadProgress.percent}%` }}
+                      />
+                    </div>
+                    <p className="account-update-progress-text">
+                      {downloadProgress.percent}%
+                      {downloadProgress.totalBytes > 0 &&
+                        ` · ${(downloadProgress.bytesDownloaded / 1024 / 1024).toFixed(2)} / ${(downloadProgress.totalBytes / 1024 / 1024).toFixed(2)} MB`}
+                    </p>
+                    <button
+                      type="button"
+                      className="account-btn account-btn-secondary"
+                      onClick={handleCancelDownload}
+                    >
+                      Cancelar descarga
+                    </button>
+                  </>
+                )}
+                {downloadError && (
+                  <p className="account-message account-message-error" style={{ marginTop: '0.75rem' }}>
+                    <span className="account-icon">⚠️</span>
+                    <span>{downloadError}</span>
+                  </p>
+                )}
+                {downloadedPath && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <p className="account-message account-message-success" style={{ marginBottom: '0.75rem' }}>
+                      <span className="account-icon">✓</span>
+                      <span>Descarga completada.</span>
+                    </p>
+                    <button
+                      type="button"
+                      className="account-btn account-btn-primary"
+                      onClick={handleOpenInstaller}
+                    >
+                      Abrir instalador
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

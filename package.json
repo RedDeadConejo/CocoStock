@@ -1,7 +1,9 @@
 {
   "name": "cocostock",
   "private": true,
-  "version": "1.9.0",
+  "version": "1.9.1",
+  "description": "CocoStock - Gestión de inventario y stock para restaurantes",
+  "author": "RedDeadConejo",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
@@ -14,6 +16,7 @@
     "electron:dev": "npm run sync-version && vite build && electron .",
     "electron:build": "npm run sync-version && vite build && electron-builder",
     "electron:build:win": "npm run sync-version && vite build && electron-builder --win",
+    "electron:build:mac": "npm run sync-version && vite build && electron-builder --mac",
     "cap:add": "cap add",
     "cap:sync": "cap sync",
     "cap:open": "cap open",
@@ -56,6 +59,14 @@
       "node_modules/**/*",
       "package.json"
     ],
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] },
+        { "target": "zip", "arch": ["x64", "arm64"] }
+      ],
+      "icon": "public/logo.icns",
+      "category": "public.app-category.business"
+    },
     "win": {
       "target": [
         {
@@ -65,7 +76,7 @@
           ]
         }
       ],
-      "icon": "public/logo.png",
+      "icon": "public/logo.ico",
       "requestedExecutionLevel": "asInvoker"
     },
     "nsis": {

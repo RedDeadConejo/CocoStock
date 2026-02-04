@@ -217,6 +217,77 @@
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
 }
 
+/* Botones (actualizaciones) */
+.account-btn {
+  padding: 0.6rem 1.2rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.05s;
+}
+.account-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.account-btn-primary {
+  background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%);
+  color: white;
+}
+.account-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+.account-btn-secondary {
+  background: #374151;
+  color: #E5E7EB;
+}
+.account-btn-secondary:hover:not(:disabled) {
+  background: #4B5563;
+}
+
+/* Sección actualizaciones */
+.account-updates-section {
+  margin-top: 1.5rem;
+}
+.account-update-available {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 12px;
+}
+.account-update-version {
+  margin: 0 0 0.5rem 0;
+  color: #10B981;
+  font-size: 1rem;
+}
+.account-update-notes {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+  color: #9CA3AF;
+  white-space: pre-wrap;
+}
+.account-update-progress-bar {
+  height: 8px;
+  background: #374151;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 0.75rem 0 0.25rem 0;
+  max-width: 320px;
+}
+.account-update-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10B981, #059669);
+  border-radius: 8px;
+  transition: width 0.2s;
+}
+.account-update-progress-text {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.875rem;
+  color: #9CA3AF;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
   .account-page {

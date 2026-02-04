@@ -1,9 +1,10 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import { startLocalServer, stopLocalServer, getServerStatus } from './localServer.js';
 import { getAuthorizedIps, saveAuthorizedIps, getActiveAuthorizedIps } from './authorizedIpsStorage.js';
+import { downloadUpdate, getDownloadProgress, cancelDownload } from './updater.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -153,6 +154,38 @@ ipcMain.handle('local-server:stop', async () => {
 
 ipcMain.handle('local-server:status', async () => {
   return getServerStatus();
+});
+
+// IPC Handlers para actualizaciones (descarga desde Supabase Storage u otra URL)
+ipcMain.handle('updater:download', async (event, downloadUrl, fileName = null) => {
+  try {
+    const userDataPath = app.getPath('userData');
+    const result = await downloadUpdate(downloadUrl, userDataPath, fileName);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message || 'Error al descargar' };
+  }
+});
+
+ipcMain.handle('updater:get-progress', async () => {
+  return getDownloadProgress();
+});
+
+ipcMain.handle('updater:cancel-download', async () => {
+  cancelDownload();
+  return { success: true };
+});
+
+ipcMain.handle('updater:open-installer', async (event, localPath) => {
+  try {
+    if (!localPath || typeof localPath !== 'string') {
+      return { success: false, error: 'Ruta no válida' };
+    }
+    await shell.openPath(localPath);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message || 'Error al abrir el instalador' };
+  }
 });
 
 // Detener el servidor e invalidar tokens de merma cuando la aplicación se cierra

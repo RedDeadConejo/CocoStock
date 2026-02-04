@@ -8,6 +8,7 @@
  */
 
 const { contextBridge, ipcRenderer } = require('electron');
+const platform = process.platform || 'win32'; // win32, darwin, linux
 
 // Exponer APIs protegidas al renderer
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -31,5 +32,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
         .catch(() => ipcRenderer.send('app-before-quit-done'));
     });
   },
+  // Actualizaciones: descarga desde URL (ej. Supabase Storage) y abrir instalador
+  updater: {
+    download: (downloadUrl, fileName) => ipcRenderer.invoke('updater:download', downloadUrl, fileName),
+    getProgress: () => ipcRenderer.invoke('updater:get-progress'),
+    cancelDownload: () => ipcRenderer.invoke('updater:cancel-download'),
+    openInstaller: (localPath) => ipcRenderer.invoke('updater:open-installer', localPath),
+  },
+  platform,
 });
 
