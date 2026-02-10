@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import { startLocalServer, stopLocalServer, getServerStatus } from './localServer.js';
@@ -41,12 +41,17 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    // En producción, cargar desde los archivos construidos
+    // En producción, cargar desde los archivos construidos.
+    // En macOS el .app usa rutas distintas; file:// evita ventana en negro.
     const indexPath = join(__dirname, '../dist/index.html');
     if (existsSync(indexPath)) {
-      mainWindow.loadFile(indexPath);
+      if (process.platform === 'darwin') {
+        mainWindow.loadURL(pathToFileURL(indexPath).href);
+      } else {
+        mainWindow.loadFile(indexPath);
+      }
     } else {
-      console.error('No se encontró el archivo index.html en dist/');
+      console.error('No se encontró el archivo index.html en dist/', indexPath);
     }
   }
 
