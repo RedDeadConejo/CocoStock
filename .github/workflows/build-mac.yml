@@ -31,6 +31,9 @@ jobs:
         run: npm ci
 
       - name: Build for macOS
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
           export GH_TOKEN="${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}"
           npm run electron:build:mac
