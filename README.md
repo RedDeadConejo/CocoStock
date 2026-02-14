@@ -113,6 +113,8 @@ Configura en el repo los secrets:
 
 Tras descargar los artifacts, sube los archivos al bucket `app-releases` y registra cada uno en la tabla `app_releases` con su `platform` correspondiente.
 
+**Interfaz de administración:** Los admins pueden subir releases y cambiar la versión mínima desde Configuración. La sección está oculta: **5 clics** en el título «Configuración» (dentro de 3 segundos) para mostrarla.
+
 ---
 
 ## Estructura del proyecto

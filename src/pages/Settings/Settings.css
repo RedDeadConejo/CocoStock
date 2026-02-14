@@ -22,6 +22,8 @@
   background-clip: text;
   margin: 0 0 0.5rem 0;
   letter-spacing: -0.02em;
+  cursor: default;
+  user-select: none;
 }
 
 .settings-subtitle {
@@ -534,4 +536,108 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1rem;
+}
+
+/* Releases de la app (solo admin) */
+.settings-tab-app-releases {
+  opacity: 0.9;
+}
+
+.settings-app-releases .settings-form-input,
+.settings-form-input {
+  padding: 0.5rem 0.75rem;
+  background: #1F2937;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  color: #FFFFFF;
+  font-size: 1rem;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.settings-form-input:focus {
+  outline: none;
+  border-color: #DC2626;
+}
+
+.settings-app-releases-hint {
+  color: #9CA3AF;
+  font-size: 0.9rem;
+  margin: -0.5rem 0 1.5rem 0;
+}
+
+.settings-app-releases-section {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #374151;
+}
+
+.settings-app-releases-section:last-child {
+  border-bottom: none;
+}
+
+.settings-app-releases-section h3 {
+  font-size: 1.1rem;
+  margin: 0 0 0.5rem 0;
+  color: #E5E7EB;
+}
+
+.settings-app-releases-desc {
+  color: #9CA3AF;
+  font-size: 0.875rem;
+  margin: 0 0 1rem 0;
+}
+
+.settings-app-releases-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.settings-app-releases-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 400px;
+}
+
+.settings-app-releases-form .settings-form-group {
+  margin: 0;
+}
+
+.settings-app-releases-empty {
+  color: #9CA3AF;
+  font-style: italic;
+}
+
+.settings-app-releases-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.settings-app-release-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #1F2937;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.settings-app-release-card.inactive {
+  opacity: 0.6;
+}
+
+.settings-app-release-info {
+  font-size: 0.9rem;
+}
+
+.settings-app-release-actions {
+  flex-shrink: 0;
 }

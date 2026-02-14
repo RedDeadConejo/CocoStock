@@ -1,7 +1,7 @@
 {
   "name": "cocostock",
   "private": true,
-  "version": "1.9.5",
+  "version": "1.9.10",
   "description": "CocoStock - Gestión de inventario y stock para restaurantes",
   "author": "RedDeadConejo",
   "type": "module",
@@ -64,8 +64,20 @@
     ],
     "mac": {
       "target": [
-        { "target": "dmg", "arch": ["x64", "arm64"] },
-        { "target": "zip", "arch": ["x64", "arm64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "artifactName": "${productName}-${version}-${arch}.${ext}",
       "icon": "public/logo.icns",

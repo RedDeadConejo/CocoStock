@@ -4,7 +4,7 @@
  * Permite gestionar roles, usuarios y permisos
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   getAllRoles, 
   createRole, 
@@ -31,6 +31,15 @@ import {
   updateAuthorizedIp,
   deleteAuthorizedIp,
 } from '../../services/authorizedIps';
+import {
+  getMinimumVersion,
+  updateMinimumVersion,
+  getAppReleases,
+  createAppRelease,
+  deactivateAppRelease,
+  activateAppRelease,
+  PLATFORM_OPTIONS,
+} from '../../services/appReleases';
 import { startLocalServer, stopLocalServer, getServerStatus } from '../../services/localServer';
 import { registerMermaServerToken, unregisterMermaServerToken } from '../../services/merma';
 import { useRole, clearRoleCache } from '../../hooks/useRole';
@@ -77,7 +86,7 @@ function Settings() {
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof sessionStorage === 'undefined') return 'roles';
     const openTab = sessionStorage.getItem('settingsOpenTab');
-    if (openTab && ['roles', 'users', 'restaurants', 'authorized-ips', 'local-servers'].includes(openTab)) return openTab;
+    if (openTab && ['roles', 'users', 'restaurants', 'authorized-ips', 'local-servers', 'app-releases'].includes(openTab)) return openTab;
     return 'roles';
   });
   
@@ -147,6 +156,28 @@ function Settings() {
     restaurantId: '', // obligatorio para modo merma
   });
   const [runningMermaTokens, setRunningMermaTokens] = useState([]); // tokens a desregistrar al parar
+
+  // Releases: desbloqueado solo con el atajo (5 clics en el título en 3 s)
+  const [appReleasesUnlocked, setAppReleasesUnlocked] = useState(() => {
+    try {
+      return sessionStorage.getItem('settingsAppReleasesUnlocked') === '1';
+    } catch { return false; }
+  });
+  const [releasesSecretClicks, setReleasesSecretClicks] = useState(0);
+  const releasesSecretTimerRef = useRef(null);
+
+  // Estados para Releases de la app (solo admin, oculto)
+  const [minimumVersion, setMinimumVersion] = useState(null);
+  const [loadingMinVersion, setLoadingMinVersion] = useState(false);
+  const [appReleases, setAppReleases] = useState([]);
+  const [loadingReleases, setLoadingReleases] = useState(false);
+  const [uploadingRelease, setUploadingRelease] = useState(false);
+  const [releaseFormData, setReleaseFormData] = useState({
+    version: '',
+    platform: 'win32',
+    file: null,
+    releaseNotes: '',
+  });
   
   // Estados generales
   const [error, setError] = useState('');
@@ -345,11 +376,32 @@ function Settings() {
       (roleName === 'admin' || permissions?.view_settings_restaurants) && 'restaurants',
       (roleName === 'admin' || permissions?.view_settings_authorized_ips) && 'authorized-ips',
       (roleName === 'admin' || permissions?.view_settings_local_servers) && 'local-servers',
+      roleName === 'admin' && 'app-releases', // Solo admin, oculto
     ].filter(Boolean);
     if (allowed.length && !allowed.includes(activeTab)) {
       setActiveTab(allowed[0]);
     }
   }, [roleName, permissions, activeTab]);
+
+  // Cargar datos de app-releases cuando el admin abre la pestaña
+  useEffect(() => {
+    if (roleName !== 'admin' || activeTab !== 'app-releases') return;
+    const load = async () => {
+      setLoadingMinVersion(true);
+      setLoadingReleases(true);
+      try {
+        const [minData, releases] = await Promise.all([getMinimumVersion(), getAppReleases()]);
+        setMinimumVersion(minData?.minimum_version ?? '');
+        setAppReleases(releases);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoadingMinVersion(false);
+        setLoadingReleases(false);
+      }
+    };
+    load();
+  }, [roleName, activeTab]);
 
   const loadRoles = async () => {
     try {
@@ -991,12 +1043,14 @@ function Settings() {
   const canSeeTabRestaurants = isAdmin || permissions.view_settings_restaurants === true;
   const canSeeTabAuthorizedIps = isAdmin || permissions.view_settings_authorized_ips === true;
   const canSeeTabLocalServers = isAdmin || permissions.view_settings_local_servers === true;
+  const canSeeTabAppReleases = isAdmin && appReleasesUnlocked;
   const canSeeTab = (tab) => {
     if (tab === 'roles') return canSeeTabRoles;
     if (tab === 'users') return canSeeTabUsers;
     if (tab === 'restaurants') return canSeeTabRestaurants;
     if (tab === 'authorized-ips') return canSeeTabAuthorizedIps;
     if (tab === 'local-servers') return canSeeTabLocalServers;
+    if (tab === 'app-releases') return canSeeTabAppReleases;
     return false;
   };
   const allowedTabs = [
@@ -1005,13 +1059,38 @@ function Settings() {
     canSeeTabRestaurants && 'restaurants',
     canSeeTabAuthorizedIps && 'authorized-ips',
     canSeeTabLocalServers && 'local-servers',
+    canSeeTabAppReleases && 'app-releases',
   ].filter(Boolean);
   const effectiveTab = allowedTabs.includes(activeTab) ? activeTab : (allowedTabs[0] || 'roles');
+
+  // Atajo para admins: 5 clics en "Configuración" en 3 s → muestra pestaña Releases
+  const handleReleasesSecretClick = () => {
+    if (roleName !== 'admin') return;
+    if (releasesSecretTimerRef.current) clearTimeout(releasesSecretTimerRef.current);
+    const next = releasesSecretClicks + 1;
+    setReleasesSecretClicks(next);
+    if (next >= 5) {
+      setAppReleasesUnlocked(true);
+      setReleasesSecretClicks(0);
+      try { sessionStorage.setItem('settingsAppReleasesUnlocked', '1'); } catch {}
+    } else {
+      releasesSecretTimerRef.current = setTimeout(() => setReleasesSecretClicks(0), 3000);
+    }
+  };
 
   return (
     <div className="settings-container">
       <div className="settings-header">
-        <h1 className="settings-title">⚙️ Configuración</h1>
+        <h1
+          className="settings-title"
+          onClick={handleReleasesSecretClick}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && handleReleasesSecretClick()}
+          aria-label="Configuración"
+        >
+          ⚙️ Configuración
+        </h1>
         <p className="settings-subtitle">
           {allowedTabs.length ? 'Gestiona según los permisos de tu rol' : 'Sin acceso a subsecciones'}
         </p>
@@ -1075,6 +1154,14 @@ function Settings() {
             onClick={() => setActiveTab('local-servers')}
           >
             Servidores locales
+          </button>
+        )}
+        {canSeeTabAppReleases && (
+          <button
+            className={`settings-tab settings-tab-app-releases ${activeTab === 'app-releases' ? 'active' : ''}`}
+            onClick={() => setActiveTab('app-releases')}
+          >
+            Releases
           </button>
         )}
       </div>
@@ -1933,6 +2020,178 @@ function Settings() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {effectiveTab === 'app-releases' && canSeeTabAppReleases && (
+        <div className="settings-content settings-app-releases">
+          <h2 style={{ marginTop: 0 }}>Releases y versión mínima</h2>
+          <p className="settings-app-releases-hint">
+            Solo visible para administradores. Sube instaladores al bucket app-releases y gestiona la versión mínima requerida.
+          </p>
+
+          <div className="settings-app-releases-section">
+            <h3>Versión mínima requerida</h3>
+            <p className="settings-app-releases-desc">
+              Los usuarios con versión inferior no podrán acceder. Formato: 1.0.0
+            </p>
+            {loadingMinVersion ? (
+              <p style={{ color: '#9CA3AF' }}>Cargando...</p>
+            ) : (
+              <div className="settings-app-releases-row">
+                <input
+                  type="text"
+                  className="settings-form-input"
+                  value={minimumVersion ?? ''}
+                  onChange={(e) => setMinimumVersion(e.target.value)}
+                  placeholder="1.0.0"
+                  style={{ maxWidth: '10rem' }}
+                />
+                <button
+                  className="settings-btn settings-btn-primary"
+                  onClick={async () => {
+                    try {
+                      setError('');
+                      setSuccess('');
+                      await updateMinimumVersion(minimumVersion);
+                      setSuccess('Versión mínima actualizada');
+                      setTimeout(() => setSuccess(''), 3000);
+                    } catch (err) {
+                      setError(err.message);
+                    }
+                  }}
+                  disabled={!minimumVersion?.trim()}
+                >
+                  Guardar
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="settings-app-releases-section">
+            <h3>Subir nuevo release</h3>
+            <p className="settings-app-releases-desc">
+              Sube el archivo (.exe, .dmg, .zip) y se registrará en la base de datos. Plataformas: win32, darwin-x64, darwin-arm64, linux.
+            </p>
+            <div className="settings-app-releases-form">
+              <div className="settings-form-group">
+                <label>Versión *</label>
+                <input
+                  type="text"
+                  className="settings-form-input"
+                  value={releaseFormData.version}
+                  onChange={(e) => setReleaseFormData((p) => ({ ...p, version: e.target.value }))}
+                  placeholder="1.9.5"
+                />
+              </div>
+              <div className="settings-form-group">
+                <label>Plataforma *</label>
+                <select
+                  className="settings-form-input"
+                  value={releaseFormData.platform}
+                  onChange={(e) => setReleaseFormData((p) => ({ ...p, platform: e.target.value }))}
+                >
+                  {PLATFORM_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="settings-form-group">
+                <label>Archivo *</label>
+                <input
+                  type="file"
+                  accept=".exe,.dmg,.zip"
+                  onChange={(e) => setReleaseFormData((p) => ({ ...p, file: e.target.files?.[0] || null }))}
+                  className="settings-form-input"
+                />
+                {releaseFormData.file && (
+                  <small style={{ color: '#9CA3AF' }}>{releaseFormData.file.name} ({(releaseFormData.file.size / 1024 / 1024).toFixed(2)} MB)</small>
+                )}
+              </div>
+              <div className="settings-form-group">
+                <label>Notas de la versión (opcional)</label>
+                <textarea
+                  className="settings-form-input"
+                  value={releaseFormData.releaseNotes}
+                  onChange={(e) => setReleaseFormData((p) => ({ ...p, releaseNotes: e.target.value }))}
+                  placeholder="Correcciones y mejoras..."
+                  rows={3}
+                />
+              </div>
+              <button
+                className="settings-btn settings-btn-primary"
+                onClick={async () => {
+                  try {
+                    setError('');
+                    setSuccess('');
+                    setUploadingRelease(true);
+                    await createAppRelease({
+                      version: releaseFormData.version.trim(),
+                      platform: releaseFormData.platform,
+                      file: releaseFormData.file,
+                      releaseNotes: releaseFormData.releaseNotes,
+                    });
+                    setSuccess('Release subido correctamente');
+                    setReleaseFormData({ version: '', platform: 'win32', file: null, releaseNotes: '' });
+                    const releases = await getAppReleases();
+                    setAppReleases(releases);
+                    setTimeout(() => setSuccess(''), 3000);
+                  } catch (err) {
+                    setError(err.message);
+                  } finally {
+                    setUploadingRelease(false);
+                  }
+                }}
+                disabled={uploadingRelease || !releaseFormData.version?.trim() || !releaseFormData.file}
+              >
+                {uploadingRelease ? 'Subiendo...' : 'Subir release'}
+              </button>
+            </div>
+          </div>
+
+          <div className="settings-app-releases-section">
+            <h3>Releases registrados</h3>
+            {loadingReleases ? (
+              <p style={{ color: '#9CA3AF' }}>Cargando...</p>
+            ) : appReleases.length === 0 ? (
+              <p className="settings-app-releases-empty">No hay releases registrados.</p>
+            ) : (
+              <div className="settings-app-releases-list">
+                {appReleases.map((r) => (
+                  <div key={r.id} className={`settings-app-release-card ${!r.is_active ? 'inactive' : ''}`}>
+                    <div className="settings-app-release-info">
+                      <strong>{r.version}</strong> · {r.platform} · {r.file_path}
+                      {r.file_size && <span style={{ color: '#9CA3AF' }}> ({(r.file_size / 1024 / 1024).toFixed(2)} MB)</span>}
+                    </div>
+                    <div className="settings-app-release-actions">
+                      <button
+                        className={`settings-btn settings-btn-small ${r.is_active ? 'settings-btn-secondary' : 'settings-btn-primary'}`}
+                        onClick={async () => {
+                          try {
+                            setError('');
+                            if (r.is_active) {
+                              await deactivateAppRelease(r.id);
+                              setSuccess('Release desactivado');
+                            } else {
+                              await activateAppRelease(r.id);
+                              setSuccess('Release reactivado');
+                            }
+                            const releases = await getAppReleases();
+                            setAppReleases(releases);
+                            setTimeout(() => setSuccess(''), 3000);
+                          } catch (err) {
+                            setError(err.message);
+                          }
+                        }}
+                      >
+                        {r.is_active ? 'Desactivar' : 'Reactivar'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

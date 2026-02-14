@@ -152,13 +152,14 @@ function Layout({ session }) {
         });
       }
 
-      // Limpiar sessionStorage
+      // Limpiar sessionStorage (incl. sección Releases desbloqueada)
       if (typeof window !== 'undefined' && window.sessionStorage) {
         const keys = Object.keys(window.sessionStorage);
         keys.forEach(key => {
           if (key.startsWith('sb-') || 
               key.includes('supabase') || 
-              key.includes('supabase.auth.token')) {
+              key.includes('supabase.auth.token') ||
+              key === 'settingsAppReleasesUnlocked') {
             window.sessionStorage.removeItem(key);
           }
         });
@@ -174,6 +175,9 @@ function Layout({ session }) {
             window.localStorage.removeItem(key);
           }
         });
+      }
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        window.sessionStorage.removeItem('settingsAppReleasesUnlocked');
       }
     }
   };

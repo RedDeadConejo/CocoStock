@@ -3,7 +3,7 @@
  * Actualizar este archivo cuando se lance una nueva versión
  */
 
-export const APP_VERSION = '1.9.5';
+export const APP_VERSION = '1.9.10';
 
 /**
  * Compara dos versiones semánticas

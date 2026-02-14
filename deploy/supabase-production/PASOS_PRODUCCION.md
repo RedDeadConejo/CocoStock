@@ -29,6 +29,7 @@ En el panel del proyecto: **SQL Editor** → New query. Ejecuta **cada archivo**
 | 0 | `00_app_releases.sql` | Tabla `app_releases` (actualizaciones). Platform: win32, darwin-x64, darwin-arm64, linux. |
 | 0a | `00a_app_releases_mac_arch.sql` | (Opcional) Migración si tenías releases con platform='darwin'. |
 | 0b | `00_app_version.sql` | Tabla `app_version` (control de versión mínima en login). RLS lectura pública. |
+| 0c | `00b_app_version_admin_only.sql` | Restringe escritura en app_version a solo Admin. |
 | 1 | `01_roles_perfiles_restaurantes.sql` | Tablas `user_roles`, `user_profiles`, `restaurants`. Trigger perfil nuevo usuario. Función `is_user_admin`. RLS. |
 | 2 | `02_productos_inventario.sql` | Tablas `products`, `suppliers`, `product_suppliers`, `product_changes_history`, `stock_history`. RLS. `soft_delete_supplier`. |
 | 3 | `03_pedidos_compras.sql` | Tablas `orders`, `order_items`, `purchases`, `purchase_items` (con `restaurant_id`, `quantity_requested`, `quantity_sent`). RLS. |

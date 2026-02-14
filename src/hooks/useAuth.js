@@ -121,6 +121,7 @@ export function useAuth() {
           }
         } else {
           setSession(null);
+          try { sessionStorage.removeItem('settingsAppReleasesUnlocked'); } catch (_) {}
         }
         setLoading(false);
       });
