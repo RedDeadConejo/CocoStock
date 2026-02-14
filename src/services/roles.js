@@ -14,6 +14,7 @@ const PROFILES_TABLE = 'user_profiles';
 export const ROLES = {
   ADMIN: 'admin',
   ALMACEN: 'almacen',
+  GESTOR_ALMACEN: 'gestor_almacen',
   RESTAURANTE: 'restaurante',
 };
 
@@ -23,6 +24,7 @@ export const ROLES = {
 export const ROLE_DESCRIPTIONS = {
   admin: 'Administrador - Acceso completo',
   almacen: 'Almacén - Gestión de stock e inventario',
+  gestor_almacen: 'Gestor de almacén - Dashboard y atajos de almacén',
   restaurante: 'Restaurante - Gestión de ventas y productos',
 };
 

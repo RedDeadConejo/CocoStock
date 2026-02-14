@@ -79,6 +79,14 @@ function Merma() {
 
   useEffect(() => {
     if (localAccess) return;
+    if (sessionStorage.getItem('mermaOpenForm') === 'true') {
+      sessionStorage.removeItem('mermaOpenForm');
+      setShowForm(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (localAccess) return;
     if (!roleName) return;
     if (isAdmin || isAlmacen) {
       getRestaurants()

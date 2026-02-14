@@ -498,6 +498,36 @@
   margin: 0;
 }
 
+.platos-ingredients-columns {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.25rem 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #9CA3AF;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.platos-ingredient-col-producto {
+  flex: 1;
+  min-width: 140px;
+}
+
+.platos-ingredient-col-cantidad {
+  width: 5rem;
+}
+
+.platos-ingredient-col-unidad {
+  min-width: 5rem;
+}
+
+.platos-ingredient-col-actions {
+  width: 2.5rem;
+}
+
 .platos-ingredient-row {
   display: flex;
   align-items: center;
@@ -534,6 +564,29 @@
 }
 
 .platos-ingredient-qty:focus {
+  outline: none;
+  border-color: #DC2626;
+}
+
+.platos-ingredient-unit-select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  background: #000000;
+  color: #FFFFFF;
+  font-size: 0.95rem;
+  min-width: 5.5rem;
+  cursor: pointer;
+}
+
+.platos-ingredient-unit-select:disabled {
+  background: #1F2937;
+  color: #6B7280;
+  cursor: not-allowed;
+  border-color: #4B5563;
+}
+
+.platos-ingredient-unit-select:focus {
   outline: none;
   border-color: #DC2626;
 }

@@ -19,6 +19,7 @@ import {
 import { getProducts } from '../../services/products';
 import { formatCurrency } from '../../utils/formatters';
 import { computeEscandallo, escandalloToCsv } from '../../utils/escandallo';
+import { toBaseQuantity, fromBaseQuantity, getUnitsForMedida } from '../../utils/unitConversion';
 import './Platos.css';
 
 const CATEGORIAS = ['Entrantes', 'Principales', 'Postres', 'Bebidas', 'Otros'];
@@ -127,11 +128,18 @@ function Platos() {
 
   const handleEdit = (dish) => {
     setEditingDish(dish);
-    const ing = (dish.ingredients || []).map((i) => ({
-      product_id: i.product_id,
-      quantity: Number(i.quantity) || 0,
-      product: i.product,
-    }));
+    const ing = (dish.ingredients || []).map((i) => {
+      const baseQty = Number(i.quantity) || 0;
+      const baseUnit = i.product?.medida || 'unidades';
+      const displayUnit = i.unit || baseUnit;
+      const displayQty = fromBaseQuantity(baseQty, displayUnit, baseUnit);
+      return {
+        product_id: i.product_id,
+        quantity: displayQty,
+        unit: displayUnit,
+        product: i.product,
+      };
+    });
     setFormData({
       nombre: dish.nombre || '',
       descripcion: dish.descripcion || '',
@@ -146,7 +154,7 @@ function Platos() {
   const addIngredient = () => {
     setFormData((prev) => ({
       ...prev,
-      ingredients: [...prev.ingredients, { product_id: '', quantity: '' }],
+      ingredients: [...prev.ingredients, { product_id: '', quantity: '', unit: '' }],
     }));
   };
 
@@ -160,7 +168,19 @@ function Platos() {
   const updateIngredient = (idx, field, value) => {
     setFormData((prev) => {
       const next = [...prev.ingredients];
-      next[idx] = { ...next[idx], [field]: value };
+      const ing = { ...next[idx], [field]: value };
+      if (field === 'product_id') {
+        const p = products.find((x) => x.id === value);
+        if (p?.medida && !ing.unit) ing.unit = p.medida;
+      }
+      if (field === 'unit') {
+        const p = products.find((x) => x.id === ing.product_id) || ing.product;
+        const baseUnit = p?.medida || 'unidades';
+        const oldUnit = next[idx].unit || baseUnit;
+        const baseQty = toBaseQuantity(parseFloat(next[idx].quantity) || 0, oldUnit, baseUnit);
+        ing.quantity = fromBaseQuantity(baseQty, value || baseUnit, baseUnit);
+      }
+      next[idx] = ing;
       return { ...prev, ingredients: next };
     });
   };
@@ -188,7 +208,13 @@ function Platos() {
     }
     const validIngredients = (formData.ingredients || [])
       .filter((i) => i.product_id && (parseFloat(i.quantity) || 0) > 0)
-      .map((i) => ({ product_id: i.product_id, quantity: parseFloat(i.quantity) || 0 }));
+      .map((i) => {
+        const p = products.find((x) => x.id === i.product_id) || i.product;
+        const baseUnit = p?.medida || 'unidades';
+        const displayUnit = i.unit || baseUnit;
+        const baseQty = toBaseQuantity(parseFloat(i.quantity) || 0, displayUnit, baseUnit);
+        return { product_id: i.product_id, quantity: baseQty, unit: displayUnit !== baseUnit ? displayUnit : null };
+      });
     try {
       let dishId;
       if (editingDish) {
@@ -218,9 +244,9 @@ function Platos() {
     }
   };
 
-  const formatIngredientUnit = (p) => {
+  const formatIngredientUnit = (p, unitOverride = null) => {
     if (!p) return 'ud';
-    return [p.medida, p.formato].filter(Boolean).join(' ') || 'ud';
+    return unitOverride || p.medida || p.formato || 'ud';
   };
 
   const openEscandalloIndividual = (dish) => {
@@ -446,14 +472,20 @@ function Platos() {
                       <div className="platos-card-ingredients">
                         <span className="platos-card-label">Ingredientes</span>
                         <ul className="platos-ingredients-list">
-                          {d.ingredients.map((i) => (
-                            <li key={i.id || i.product_id}>
-                              {i.product?.nombre ?? 'Producto'}
-                              {' — '}
-                              {Number(i.quantity)}
-                              {formatIngredientUnit(i.product)}
-                            </li>
-                          ))}
+                          {d.ingredients.map((i) => {
+                            const baseUnit = i.product?.medida || 'unidades';
+                            const displayUnit = i.unit || baseUnit;
+                            const displayQty = displayUnit !== baseUnit
+                              ? fromBaseQuantity(Number(i.quantity) || 0, displayUnit, baseUnit)
+                              : Number(i.quantity) || 0;
+                            return (
+                              <li key={i.id || i.product_id}>
+                                {i.product?.nombre ?? 'Producto'}
+                                {' — '}
+                                {displayQty} {formatIngredientUnit(i.product, displayUnit)}
+                              </li>
+                            );
+                          })}
                         </ul>
                       </div>
                     )}
@@ -569,6 +601,14 @@ function Platos() {
                     + Añadir ingrediente
                   </button>
                 </div>
+                {(formData.ingredients || []).length > 0 && (
+                  <div className="platos-ingredients-columns">
+                    <span className="platos-ingredient-col-producto">Producto</span>
+                    <span className="platos-ingredient-col-cantidad">Cantidad</span>
+                    <span className="platos-ingredient-col-unidad">Unidad</span>
+                    <span className="platos-ingredient-col-actions" aria-hidden="true" />
+                  </div>
+                )}
                 {loadingProducts && (
                   <p className="platos-ingredients-loading">Cargando productos...</p>
                 )}
@@ -615,15 +655,27 @@ function Platos() {
                         type="text"
                         inputMode="decimal"
                         className="platos-ingredient-qty"
-                        placeholder="Cant."
+                        placeholder="Cantidad"
                         value={ing.quantity ?? ''}
                         onChange={(e) => updateIngredient(idx, 'quantity', e.target.value)}
                       />
-                      {selectedProduct && (
-                        <span className="platos-ingredient-unit">
-                          {formatIngredientUnit(selectedProduct)}
-                        </span>
-                      )}
+                      <select
+                        className="platos-ingredient-unit-select"
+                        value={ing.unit || selectedProduct?.medida || ''}
+                        onChange={(e) => updateIngredient(idx, 'unit', e.target.value)}
+                        disabled={!selectedProduct}
+                        title={selectedProduct ? 'Unidad de medida para esta receta' : 'Selecciona un producto primero'}
+                      >
+                        {selectedProduct ? (
+                          getUnitsForMedida(selectedProduct.medida).map((u) => (
+                            <option key={u.value} value={u.value}>
+                              {u.label}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="">—</option>
+                        )}
+                      </select>
                       <button
                         type="button"
                         className="platos-ingredient-remove"

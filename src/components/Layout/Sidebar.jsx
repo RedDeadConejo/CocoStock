@@ -7,18 +7,18 @@ import { useMemo } from 'react';
 import { useRole } from '../../hooks/useRole';
 import { ROLES } from '../../services/roles';
 
-/** Roles por defecto por vista si no hay configuración en DB (fallback) */
+/** Solo admin por defecto; el resto de roles obtienen permisos desde la BD */
 const DEFAULT_VIEW_ROLES = {
-  dashboard: [ROLES.ADMIN, ROLES.ALMACEN, ROLES.RESTAURANTE],
-  inventory: [ROLES.ADMIN, ROLES.ALMACEN],
-  orders: [ROLES.ADMIN, ROLES.ALMACEN, ROLES.RESTAURANTE],
-  platos: [ROLES.ADMIN, ROLES.ALMACEN, ROLES.RESTAURANTE],
-  merma: [ROLES.ADMIN, ROLES.ALMACEN, ROLES.RESTAURANTE],
-  purchases: [ROLES.ADMIN, ROLES.ALMACEN],
+  dashboard: [ROLES.ADMIN],
+  inventory: [ROLES.ADMIN],
+  orders: [ROLES.ADMIN],
+  platos: [ROLES.ADMIN],
+  merma: [ROLES.ADMIN],
+  purchases: [ROLES.ADMIN],
   suppliers: [ROLES.ADMIN],
-  statistics: [ROLES.ADMIN, ROLES.ALMACEN],
-  account: [ROLES.ADMIN, ROLES.ALMACEN, ROLES.RESTAURANTE],
-  settings: [ROLES.ADMIN, ROLES.RESTAURANTE],
+  statistics: [ROLES.ADMIN],
+  account: [ROLES.ADMIN],
+  settings: [ROLES.ADMIN],
 };
 
 function Sidebar({ currentView, onViewChange, onLogout, isOpen, onToggle, userId, viewPermissionsMap }) {

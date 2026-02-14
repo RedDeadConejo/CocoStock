@@ -2,7 +2,7 @@
 -- CocoStock Producción - Releases para actualizaciones (app_releases)
 -- ============================================
 -- La app Electron consulta la última versión disponible y descarga el instalador
--- desde Supabase Storage (bucket app-releases, público para lectura).
+-- desde Supabase Storage (bucket app-releases). Ver 12_storage_app_releases.sql para políticas.
 
 -- ========== APP_RELEASES ==========
 CREATE TABLE IF NOT EXISTS app_releases (
@@ -42,5 +42,5 @@ CREATE POLICY "Solo servicio puede escribir app_releases" ON app_releases
 
 -- Comentarios
 COMMENT ON TABLE app_releases IS 'Releases de la app para actualizaciones; file_path es la ruta dentro del bucket app-releases en Storage';
-COMMENT ON COLUMN app_releases.platform IS 'win32, darwin o linux';
-COMMENT ON COLUMN app_releases.file_path IS 'Nombre del archivo en el bucket (ej: CocoStock-Setup-1.9.1.exe)';
+COMMENT ON COLUMN app_releases.platform IS 'Plataforma: win32 (Windows), darwin-x64 (Mac Intel), darwin-arm64 (Mac Apple Silicon), linux, linux-arm64';
+COMMENT ON COLUMN app_releases.file_path IS 'Nombre del archivo en el bucket (ej: CocoStock-Setup-1.9.1.exe, CocoStock-1.9.5-arm64.dmg)';

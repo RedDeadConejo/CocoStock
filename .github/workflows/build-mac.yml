@@ -1,5 +1,8 @@
-# Compila la app Electron para macOS (sin necesidad de tener un Mac)
+# Compila la app Electron para macOS (Intel y Apple Silicon) sin necesidad de tener un Mac
 # Los instaladores se descargan desde la pestaña "Actions" → ejecución → Artifacts
+#
+# Genera: CocoStock-{version}-x64.dmg, CocoStock-{version}-arm64.dmg, .zip para cada arch
+# En app_releases usa platform: darwin-x64 (Mac Intel) y darwin-arm64 (Mac Apple Silicon)
 #
 # Usa GITHUB_TOKEN (automático) o tu secreto GH_TOKEN si lo tienes configurado
 
@@ -13,9 +16,8 @@ on:
 
 jobs:
   build-mac:
-    runs-on: macos-latest
+    runs-on: macos-latest  # Apple Silicon (arm64) - compila ambas arquitecturas
     env:
-      # Siempre hay token: el de GitHub (automático) o tu PAT si añadiste secreto GH_TOKEN
       GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
@@ -30,7 +32,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build for macOS
+      - name: Build for macOS (x64 + arm64)
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
@@ -43,5 +45,6 @@ jobs:
         with:
           name: CocoStock-macOS
           path: |
+            release/*.dmg
             release/*.zip
           retention-days: 7

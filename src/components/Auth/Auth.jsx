@@ -1,81 +1,48 @@
 /**
  * Componente Auth
  * Formulario de inicio de sesión
+ * La verificación de versión se hace tras login exitoso (App.jsx)
+ * El email recordado se guarda cifrado en local (secureStorage).
  */
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
-import { checkVersion } from '../../services/version';
-import { APP_VERSION } from '../../constants/version';
+import { getRememberedEmail, setRememberedEmail, clearRememberedEmail } from '../../utils/rememberedEmail';
 import logo from '../../assets/logo.png';
 import './Auth.css';
 
 function Auth() {
   const [loading, setLoading] = useState(false);
-  const [checkingVersion, setCheckingVersion] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberEmail, setRememberEmail] = useState(true);
+  const [capsLockOn, setCapsLockOn] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const [error, setError] = useState('');
-  const [versionError, setVersionError] = useState(null);
 
-  /**
-   * Verifica la versión de la aplicación al cargar
-   * Si falla la verificación, se bloquea el login
-   */
+  const handlePasswordKeyDown = (e) => {
+    setCapsLockOn(e.getModifierState?.('CapsLock') ?? false);
+  };
+
   useEffect(() => {
-    const verifyVersion = async () => {
-      try {
-        setCheckingVersion(true);
-        setVersionError(null); // Limpiar errores previos
-        
-        // Intentar verificar la versión con un timeout
-        const versionCheck = await Promise.race([
-          checkVersion(APP_VERSION),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Timeout al verificar versión')), 10000)
-          )
-        ]);
-        
-        // Si la verificación fue exitosa y la versión es inválida, bloquear
-        if (versionCheck && !versionCheck.isValid && versionCheck.minimumVersion) {
-          setVersionError({
-            currentVersion: versionCheck.currentVersion,
-            minimumVersion: versionCheck.minimumVersion,
-            isError: false, // Es un error de versión, no de conexión
-          });
-        } else if (!versionCheck || !versionCheck.minimumVersion) {
-          // Si no hay versión mínima configurada, permitir acceso
-          setVersionError(null);
-        }
-      } catch (err) {
-        console.error('Error al verificar versión:', err.message);
-        // En caso de error (timeout, conexión, permisos, etc.), BLOQUEAR acceso
-        setVersionError({
-          currentVersion: APP_VERSION,
-          minimumVersion: null,
-          isError: true, // Es un error de conexión/verificación
-          errorMessage: err.message || 'No se pudo verificar la versión de la aplicación',
-        });
-      } finally {
-        setCheckingVersion(false);
-      }
-    };
+    if (!passwordFocused) return;
+    const onKeyDown = (e) => setCapsLockOn(e.getModifierState?.('CapsLock') ?? false);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [passwordFocused]);
 
-    verifyVersion();
+  useEffect(() => {
+    getRememberedEmail().then((stored) => {
+      if (stored) {
+        setEmail(stored);
+        setRememberEmail(true);
+      }
+    });
   }, []);
 
-  /**
-   * Maneja el envío del formulario de inicio de sesión
-   */
   const handleLogin = async (e) => {
     e.preventDefault();
-    
-    // Bloquear login si la versión es obsoleta
-    if (versionError) {
-      setError('Debes actualizar la aplicación para continuar');
-      return;
-    }
-
     setLoading(true);
     setError('');
 
@@ -86,28 +53,16 @@ function Auth() {
 
     if (loginError) {
       setError(loginError.message || 'Error al iniciar sesión');
+    } else {
+      if (rememberEmail) {
+        await setRememberedEmail(email);
+      } else {
+        clearRememberedEmail();
+      }
     }
 
     setLoading(false);
   };
-
-  // Mostrar carga mientras se verifica la versión
-  if (checkingVersion) {
-    return (
-      <div className="auth-wrapper">
-        <div className="auth-container">
-          <div className="auth-header">
-            <img src={logo} alt="CocoStock Logo" className="auth-logo" />
-            <h1 className="auth-title">CocoStock</h1>
-            <p className="auth-subtitle">Verificando versión...</p>
-          </div>
-          <div className="auth-loading">
-            <span className="auth-spinner"></span>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="auth-wrapper">
@@ -117,46 +72,6 @@ function Auth() {
           <h1 className="auth-title">CocoStock</h1>
           <p className="auth-subtitle">Bienvenido de nuevo</p>
         </div>
-
-        {/* Mensaje de versión obsoleta o error de verificación */}
-        {versionError && (
-          <div className="auth-message auth-version-error">
-            <span className="auth-icon">{versionError.isError ? '⚠️' : '🔄'}</span>
-            <div className="auth-version-content">
-              <strong>
-                {versionError.isError 
-                  ? 'Error al verificar versión' 
-                  : 'Versión obsoleta detectada'}
-              </strong>
-              {versionError.isError ? (
-                <>
-                  <p>
-                    No se pudo verificar la versión de la aplicación. 
-                    Por favor, verifica tu conexión a internet e intenta nuevamente.
-                  </p>
-                  {versionError.errorMessage && (
-                    <p className="auth-version-action">
-                      <small>Error: {versionError.errorMessage}</small>
-                    </p>
-                  )}
-                  <p className="auth-version-action">
-                    El acceso está bloqueado hasta que se pueda verificar la versión.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p>
-                    Tu versión actual es <strong>{versionError.currentVersion}</strong>, 
-                    pero se requiere la versión <strong>{versionError.minimumVersion}</strong> o superior.
-                  </p>
-                  <p className="auth-version-action">
-                    Por favor, actualiza la aplicación para continuar.
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-        )}
 
         <form className="auth-form" onSubmit={handleLogin}>
           {error && (
@@ -186,23 +101,68 @@ function Auth() {
             <label htmlFor="password" className="auth-label">
               Contraseña
             </label>
-            <input
-              id="password"
-              type="password"
-              className="auth-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              disabled={loading}
-              minLength={6}
-            />
+            <div className="auth-password-wrapper">
+              {passwordFocused && capsLockOn && (
+                <div className="auth-caps-popup" role="alert">
+                  <span className="auth-caps-icon">⇪</span>
+                  <span>Mayúsculas activadas</span>
+                </div>
+              )}
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                className="auth-input auth-input-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={handlePasswordKeyDown}
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
+                placeholder="••••••••"
+                required
+                disabled={loading}
+                minLength={6}
+              />
+              <button
+                type="button"
+                className="auth-password-toggle"
+                onClick={() => setShowPassword((v) => !v)}
+                tabIndex={-1}
+                disabled={loading}
+                title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                aria-label={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+              >
+                {showPassword ? (
+                  <svg className="auth-password-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
+                  </svg>
+                ) : (
+                  <svg className="auth-password-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="auth-remember-row">
+            <label className="auth-checkbox-label">
+              <input
+                type="checkbox"
+                className="auth-checkbox"
+                checked={rememberEmail}
+                onChange={(e) => setRememberEmail(e.target.checked)}
+                disabled={loading}
+              />
+              <span className="auth-checkbox-text">Recordar email</span>
+            </label>
           </div>
 
           <button
             type="submit"
             className="auth-button"
-            disabled={loading || versionError}
+            disabled={loading}
           >
             {loading ? (
               <>
@@ -220,4 +180,3 @@ function Auth() {
 }
 
 export default Auth;
-

@@ -3,11 +3,73 @@
  * Formulario para crear y editar productos
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { createProduct, updateProduct, getProductById } from '../../services/products';
 import { getSuppliers } from '../../services/suppliers';
 import MultiSelect from '../MultiSelect/MultiSelect';
 import './ProductForm.css';
+
+// Título de sección
+function SectionTitle({ title }) {
+  return (
+    <h3 className="product-form-section-title">{title}</h3>
+  );
+}
+
+// Etiqueta de campo con icono de información individual (popup al pasar el ratón)
+function LabelWithInfo({ htmlFor, children, info }) {
+  const [showInfo, setShowInfo] = useState(false);
+  const [popupCoords, setPopupCoords] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef(null);
+  const hideTimerRef = useRef(null);
+
+  const handleEnter = () => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    setShowInfo(true);
+  };
+  const handleLeave = () => {
+    hideTimerRef.current = setTimeout(() => setShowInfo(false), 150);
+  };
+
+  useLayoutEffect(() => {
+    if (!showInfo || !info || !buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    setPopupCoords({
+      top: rect.top,
+      left: rect.left + rect.width / 2,
+    });
+  }, [showInfo, info]);
+
+  return (
+    <div className="product-form-label-wrap">
+      <label htmlFor={htmlFor} className="product-form-label">{children}</label>
+      {info && (
+        <span className="product-form-field-info-wrap" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+          <button ref={buttonRef} type="button" className="product-form-info-btn" aria-label="Información sobre este campo">
+            ℹ️
+          </button>
+          {showInfo && createPortal(
+            <div
+              className="product-form-info-popup product-form-field-popup product-form-field-popup-portal"
+              role="tooltip"
+              style={{
+                top: popupCoords.top,
+                left: popupCoords.left,
+                transform: 'translate(-50%, calc(-100% - 6px))',
+              }}
+              onMouseEnter={handleEnter}
+              onMouseLeave={handleLeave}
+            >
+              {info}
+            </div>,
+            document.body
+          )}
+        </span>
+      )}
+    </div>
+  );
+}
 
 // Opciones comunes de formato
 const formatOptions = [
@@ -47,6 +109,9 @@ function ProductForm({ product, onClose, onSave }) {
   const [customFormatValue, setCustomFormatValue] = useState('');
   const [customMeasure, setCustomMeasure] = useState(false);
   const [customMeasureValue, setCustomMeasureValue] = useState('');
+  const [useDesglose, setUseDesglose] = useState(false);
+  const [desgloseUnidades, setDesgloseUnidades] = useState('');
+  const [desgloseContenido, setDesgloseContenido] = useState('');
 
   const isEditing = !!product;
   const isCreating = !isEditing;
@@ -95,6 +160,10 @@ function ProductForm({ product, onClose, onSave }) {
         const productMeasure = product.medida || '';
         const isCustomMeasure = productMeasure && !formatOptions.some(opt => opt.value === productMeasure && opt.value !== '');
         
+        const cpf = product.cantidad_por_formato || '';
+        const cpfNum = parseFloat(cpf);
+        const hasSimpleDesglose = !isNaN(cpfNum) && cpfNum >= 1 && Number.isInteger(cpfNum);
+
         setFormData({
           nombre: product.nombre || '',
           precio: product.precio || '',
@@ -104,17 +173,33 @@ function ProductForm({ product, onClose, onSave }) {
           iva: product.iva || '',
           referencia: product.referencia || '',
           nivel_reordenado: product.nivel_reordenado || '',
-          cantidad_por_formato: product.cantidad_por_formato || '',
+          cantidad_por_formato: cpf,
           stock: product.stock || '0',
         });
         setCustomFormat(isCustomFormat);
         setCustomFormatValue(isCustomFormat ? productFormat : '');
         setCustomMeasure(isCustomMeasure);
         setCustomMeasureValue(isCustomMeasure ? productMeasure : '');
+        if (hasSimpleDesglose) {
+          setDesgloseUnidades(String(cpfNum));
+          setDesgloseContenido('1');
+        }
       }
     };
     loadProductData();
   }, [product]);
+
+  /**
+   * Sincroniza desglose → cantidad_por_formato cuando está activo
+   */
+  useEffect(() => {
+    if (!useDesglose) return;
+    const u = parseFloat(desgloseUnidades);
+    const c = parseFloat(desgloseContenido);
+    if (!isNaN(u) && !isNaN(c) && u > 0 && c > 0) {
+      setFormData((prev) => ({ ...prev, cantidad_por_formato: String(u * c) }));
+    }
+  }, [useDesglose, desgloseUnidades, desgloseContenido]);
 
   /**
    * Maneja el cambio en los campos del formulario
@@ -232,236 +317,135 @@ function ProductForm({ product, onClose, onSave }) {
         )}
 
         <form className="product-form" onSubmit={handleSubmit}>
-          <div className="product-form-row">
-            <div className="product-form-group product-form-group-large">
-              <label htmlFor="nombre" className="product-form-label">
-                Nombre *
-              </label>
-              <input
-                id="nombre"
-                name="nombre"
-                type="text"
-                className="product-form-input"
-                value={formData.nombre}
-                onChange={handleChange}
-                required
-                disabled={loading}
-              />
-            </div>
-
-            <div className="product-form-group product-form-group-small">
-              <label htmlFor="referencia" className="product-form-label">
-                Referencia
-              </label>
-              <input
-                id="referencia"
-                name="referencia"
-                type="text"
-                className="product-form-input"
-                value={formData.referencia}
-                onChange={handleChange}
-                disabled={loading}
-              />
-            </div>
-          </div>
-
-          <div className="product-form-row">
-            <div className="product-form-group">
-              <label htmlFor="precio" className="product-form-label">
-                Precio *
-              </label>
-              <input
-                id="precio"
-                name="precio"
-                type="number"
-                step="0.0000001"
-                min="-1"
-                className="product-form-input"
-                value={formData.precio}
-                onChange={handleChange}
-                required
-                disabled={loading}
-              />
-            </div>
-
-            <div className="product-form-group">
-              <label htmlFor="formato" className="product-form-label">
-                Formato
-              </label>
-              {!customFormat ? (
-                <select
-                  id="formato"
-                  name="formato"
-                  className="product-form-input product-form-select"
-                  value={formData.formato}
-                  onChange={handleChange}
-                  disabled={loading}
-                >
-                  {formatOptions.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  id="formato-custom"
-                  name="formato-custom"
-                  type="text"
-                  className="product-form-input"
-                  value={customFormatValue}
-                  onChange={handleCustomFormatChange}
-                  placeholder="Escribe el formato personalizado..."
-                  disabled={loading}
-                />
-              )}
-            </div>
-          </div>
-
-          <div className="product-form-row">
-            <div className="product-form-group">
-              <label htmlFor="medida" className="product-form-label">
-                Medida
-              </label>
-              {!customMeasure ? (
-                <select
-                  id="medida"
-                  name="medida"
-                  className="product-form-input product-form-select"
-                  value={formData.medida}
-                  onChange={handleChange}
-                  disabled={loading}
-                >
-                  {formatOptions.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  id="medida-custom"
-                  name="medida-custom"
-                  type="text"
-                  className="product-form-input"
-                  value={customMeasureValue}
-                  onChange={handleCustomMeasureChange}
-                  placeholder="Escribe la medida personalizada..."
-                  disabled={loading}
-                />
-              )}
-            </div>
-
-            <div className="product-form-group">
-              <MultiSelect
-                options={suppliers.map(s => ({
-                  value: s.id,
-                  label: s.nombre,
-                }))}
-                selected={selectedSupplierIds}
-                onChange={setSelectedSupplierIds}
-                placeholder="Selecciona proveedores..."
-                label="Proveedores"
-                disabled={loading || loadingSuppliers}
-              />
-            </div>
-          </div>
-
-          <div className="product-form-row">
-            <div className="product-form-group">
-              <label htmlFor="precio_por_formato" className="product-form-label">
-                Precio por Formato
-              </label>
-              <input
-                id="precio_por_formato"
-                name="precio_por_formato"
-                type="number"
-                step="0.01"
-                min="0"
-                className="product-form-input"
-                value={formData.precio_por_formato}
-                onChange={handleChange}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="product-form-group">
-              <label htmlFor="iva" className="product-form-label">
-                IVA (%)
-              </label>
-              <input
-                id="iva"
-                name="iva"
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                className="product-form-input"
-                value={formData.iva}
-                onChange={handleChange}
-                disabled={loading}
-              />
-            </div>
-          </div>
-
-          <div className="product-form-row">
-            <div className="product-form-group">
-              <label htmlFor="nivel_reordenado" className="product-form-label">
-                Nivel de Reordenado
-              </label>
-              <input
-                id="nivel_reordenado"
-                name="nivel_reordenado"
-                type="number"
-                min="0"
-                className="product-form-input"
-                value={formData.nivel_reordenado}
-                onChange={handleChange}
-                disabled={loading}
-                placeholder="Cantidad mínima antes de reordenar"
-              />
-            </div>
-
-            <div className="product-form-group">
-              <label htmlFor="cantidad_por_formato" className="product-form-label">
-                Cantidad por Formato
-              </label>
-              <input
-                id="cantidad_por_formato"
-                name="cantidad_por_formato"
-                type="number"
-                step="0.001"
-                min="0"
-                className="product-form-input"
-                value={formData.cantidad_por_formato}
-                onChange={handleChange}
-                disabled={loading}
-                placeholder="Ej: 12 (si el formato es caja de 12)"
-              />
-            </div>
-          </div>
-
-          {isCreating && (
+          {/* Información general */}
+          <div className="product-form-section">
+            <SectionTitle title="Información general" />
             <div className="product-form-row">
               <div className="product-form-group">
-                <label htmlFor="stock" className="product-form-label">
-                  Stock Inicial (Cantidad en Inventario) *
-                </label>
-                <input
-                  id="stock"
-                  name="stock"
-                  type="number"
-                  min="0"
-                  className="product-form-input"
-                  value={formData.stock}
-                  onChange={handleChange}
-                  required
-                  disabled={loading}
-                  placeholder="Cantidad inicial en inventario"
-                />
+                <LabelWithInfo htmlFor="nombre" info="Nombre comercial del producto. Ej: Arroz integral, Salsa de soja, Noodles.">
+                  Nombre *
+                </LabelWithInfo>
+                <input id="nombre" name="nombre" type="text" className="product-form-input" value={formData.nombre} onChange={handleChange} required disabled={loading} placeholder="Ej: Arroz integral" />
+              </div>
+              <div className="product-form-group">
+                <LabelWithInfo htmlFor="referencia" info="Código o referencia interna para identificar el producto. Ej: ARR-001.">
+                  Referencia
+                </LabelWithInfo>
+                <input id="referencia" name="referencia" type="text" className="product-form-input" value={formData.referencia} onChange={handleChange} disabled={loading} placeholder="ARR-001" />
               </div>
             </div>
-          )}
+            <div className="product-form-row">
+              <div className="product-form-group product-form-group-full">
+                <LabelWithInfo htmlFor="product-form-suppliers" info="Proveedores que suministran este producto. Permite saber dónde comprar y consultar precios.">
+                  Proveedores
+                </LabelWithInfo>
+                <MultiSelect options={suppliers.map(s => ({ value: s.id, label: s.nombre }))} selected={selectedSupplierIds} onChange={setSelectedSupplierIds} placeholder="Proveedores..." label="" disabled={loading || loadingSuppliers} />
+              </div>
+            </div>
+          </div>
+
+          {/* Presentación y unidad */}
+          <div className="product-form-section">
+            <SectionTitle title="Presentación y unidad" />
+            <div className="product-form-row">
+              <div className="product-form-group">
+                <LabelWithInfo htmlFor="formato" info="En qué unidad compras el producto. Ej: caja, kg, botella, bolsa, paquete.">
+                  Unidad de compra
+                </LabelWithInfo>
+                {!customFormat ? (
+                  <select id="formato" name="formato" className="product-form-input product-form-select" value={formData.formato} onChange={handleChange} disabled={loading}>
+                    {formatOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  </select>
+                ) : (
+                  <input id="formato-custom" type="text" className="product-form-input" value={customFormatValue} onChange={handleCustomFormatChange} placeholder="Ej: bandeja" disabled={loading} />
+                )}
+              </div>
+              <div className="product-form-group">
+                <LabelWithInfo htmlFor="medida" info="Unidad en que se mide el contenido para recetas y escandallos. Ej: L, g, ml, paquetes, unidades.">
+                  Unidad del contenido
+                </LabelWithInfo>
+                {!customMeasure ? (
+                  <select id="medida" name="medida" className="product-form-input product-form-select" value={formData.medida} onChange={handleChange} disabled={loading}>
+                    {formatOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  </select>
+                ) : (
+                  <input id="medida-custom" type="text" className="product-form-input" value={customMeasureValue} onChange={handleCustomMeasureChange} placeholder="Ej: L, g" disabled={loading} />
+                )}
+              </div>
+            </div>
+            <div className="product-form-row product-form-row-compact">
+              <div className="product-form-radio-group product-form-radio-inline">
+                <label className="product-form-radio-label">
+                  <input type="radio" name="modo_contenido" checked={!useDesglose} onChange={() => setUseDesglose(false)} disabled={loading} />
+                  <span>Total directo</span>
+                </label>
+                <label className="product-form-radio-label">
+                  <input type="radio" name="modo_contenido" checked={useDesglose} onChange={() => setUseDesglose(true)} disabled={loading} />
+                  <span>Desglose (4 × 1 L)</span>
+                </label>
+              </div>
+              {!useDesglose ? (
+                <div className="product-form-group product-form-group-inline">
+                  <LabelWithInfo htmlFor="cantidad_por_formato" info="Cuántas unidades de contenido (L, g, paquetes…) vienen en cada unidad que compras. Ej: caja de 10 paquetes de noodles → 10. Caja de 4 L → 4.">
+                    Contenido por unidad de compra
+                  </LabelWithInfo>
+                  <input id="cantidad_por_formato" name="cantidad_por_formato" type="number" step="0.001" min="0" className="product-form-input" value={formData.cantidad_por_formato} onChange={handleChange} disabled={loading} placeholder="4" />
+                </div>
+              ) : (
+                <div className="product-form-group product-form-desglose-inline">
+                  <LabelWithInfo htmlFor="desglose-unidades" info="Unidades × contenido por unidad. Ej: 4 paquetes × 1 L = 4 L total por unidad de compra.">
+                    Desglose
+                  </LabelWithInfo>
+                  <div className="product-form-desglose product-form-desglose-inline">
+                    <input id="desglose-unidades" type="number" step="1" min="0" className="product-form-input product-form-input-sm" value={desgloseUnidades} onChange={(e) => setDesgloseUnidades(e.target.value)} disabled={loading} placeholder="4" />
+                    <span>×</span>
+                    <input type="number" step="0.001" min="0" className="product-form-input product-form-input-sm" value={desgloseContenido} onChange={(e) => setDesgloseContenido(e.target.value)} disabled={loading} placeholder="1" />
+                    <span className="product-form-desglose-eq">= {formData.cantidad_por_formato || '0'} {formData.medida || '—'}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Precios e inventario */}
+          <div className="product-form-section product-form-section-grid">
+            <div className="product-form-section-block">
+              <SectionTitle title="Precios" />
+              <div className="product-form-row">
+                <div className="product-form-group">
+                  <LabelWithInfo htmlFor="precio_por_formato" info="Lo que pagas por cada unidad de compra (caja, kg, botella…). Se usa para calcular el coste unitario en escandallos: Precio ÷ Contenido por unidad de compra.">
+                    Precio/unidad compra *
+                  </LabelWithInfo>
+                  <input id="precio_por_formato" name="precio_por_formato" type="number" step="0.01" min="0" className="product-form-input" value={formData.precio_por_formato} onChange={handleChange} disabled={loading} placeholder="10" />
+                </div>
+                <div className="product-form-group">
+                  <LabelWithInfo htmlFor="iva" info="Porcentaje de IVA aplicable. Se usa para facturación y cálculos con impuestos.">
+                    IVA (%)
+                  </LabelWithInfo>
+                  <input id="iva" name="iva" type="number" step="0.01" min="0" max="100" className="product-form-input" value={formData.iva} onChange={handleChange} disabled={loading} placeholder="21" />
+                </div>
+              </div>
+            </div>
+            <div className="product-form-section-block">
+              <SectionTitle title="Inventario" />
+              <div className="product-form-row">
+                <div className="product-form-group">
+                  <LabelWithInfo htmlFor="nivel_reordenado" info="Cantidad mínima antes de que se active un aviso de reorden. Ej: si pones 5, te avisará cuando queden 5 o menos unidades.">
+                    Stock mínimo
+                  </LabelWithInfo>
+                  <input id="nivel_reordenado" name="nivel_reordenado" type="number" min="0" className="product-form-input" value={formData.nivel_reordenado} onChange={handleChange} disabled={loading} placeholder="5" />
+                </div>
+                {isCreating && (
+                  <div className="product-form-group">
+                    <LabelWithInfo htmlFor="stock" info="Cantidad actual en almacén al dar de alta el producto. Después se actualiza con entradas y salidas.">
+                      Stock inicial *
+                    </LabelWithInfo>
+                    <input id="stock" name="stock" type="number" min="0" className="product-form-input" value={formData.stock} onChange={handleChange} required disabled={loading} placeholder="0" />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
 
           <div className="product-form-actions">
             <button

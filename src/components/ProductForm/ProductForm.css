@@ -16,9 +16,9 @@
 .product-form-container {
   background: #1A1A1A;
   border: 1px solid #374151;
-  border-radius: 24px;
+  border-radius: 20px;
   width: 100%;
-  max-width: 700px;
+  max-width: 560px;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
@@ -40,7 +40,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.25rem 2rem;
+  padding: 1rem 1.5rem;
   border-bottom: 1px solid #374151;
 }
 
@@ -91,45 +91,239 @@
 }
 
 .product-form {
-  padding: 1.5rem 2rem;
+  padding: 1rem 1.5rem;
   display: flex;
   flex-direction: column;
+  gap: 0.75rem;
+}
+
+.product-form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #374151;
+}
+
+.product-form-section:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.product-form-section-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 1rem;
+  border-bottom: none;
+}
+
+.product-form-section-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border: 1px solid #374151;
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.product-form-section-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.product-form-section-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.product-form-info-wrap {
+  position: relative;
+}
+
+.product-form-info-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: help;
+  font-size: 0.85rem;
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.product-form-info-btn:hover {
+  opacity: 1;
+}
+
+.product-form-info-popup {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 200px;
+  max-width: 280px;
+  padding: 0.5rem 0.65rem;
+  background: rgba(26, 26, 26, 0.98);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 8px;
+  color: #E5E7EB;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 20;
+  white-space: normal;
+  pointer-events: auto;
+  animation: productFormInfoFade 0.15s ease-out;
+}
+
+.product-form-info-popup::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border: 5px solid transparent;
+  border-top-color: rgba(245, 158, 11, 0.4);
+}
+
+@keyframes productFormInfoFade {
+  from { opacity: 0; transform: translateX(-50%) translateY(2px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 .product-form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
-.product-form-group-large {
-  grid-column: span 1;
-}
-
-.product-form-group-small {
-  grid-column: span 1;
-}
-
-.product-form-group {
+.product-form-row-compact {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.product-form-group-full {
+  grid-column: 1 / -1;
+}
+
+.product-form-group-inline {
+  min-width: 90px;
+}
+
+.product-form-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.product-form-radio-inline {
+  margin: 0;
+}
+
+.product-form-radio-label {
+  display: flex;
+  align-items: center;
   gap: 0.4rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #D1D5DB;
+}
+
+.product-form-radio-label input {
+  accent-color: #DC2626;
+  cursor: pointer;
+}
+
+.product-form-desglose {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.product-form-desglose-inline {
+  align-items: flex-end;
+}
+
+.product-form-desglose-inline .product-form-input-sm {
+  width: 4rem;
+}
+
+.product-form-desglose-eq {
+  font-size: 0.8rem;
+  color: #9CA3AF;
+}
+
+.product-form-desglose-eq strong {
+  color: #FFFFFF;
+}
+
+.product-form-input-sm {
+  padding: 0.5rem 0.6rem;
+  font-size: 0.9rem;
+}
+
+
+.product-form-label-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: default;
 }
 
 .product-form-label {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #D1D5DB;
   letter-spacing: 0.01em;
 }
 
+.product-form-field-info-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.product-form-field-popup {
+  min-width: 180px;
+}
+
+/* Popup renderizado en portal para no cortarse por overflow del formulario */
+.product-form-field-popup-portal {
+  position: fixed !important;
+  bottom: auto !important;
+  z-index: 10001;
+  animation: productFormFieldPopupFade 0.15s ease-out;
+}
+
+@keyframes productFormFieldPopupFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.product-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .product-form-input {
   width: 100%;
-  padding: 0.7rem 1rem;
+  padding: 0.5rem 0.75rem;
   border: 2px solid #374151;
-  border-radius: 10px;
-  font-size: 0.95rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
   font-family: inherit;
   transition: all 0.3s ease;
   background: #1F2937;
@@ -155,10 +349,11 @@
 
 .product-form-select {
   width: 100%;
-  padding: 0.7rem 1rem;
+  padding: 0.5rem 0.75rem;
+  padding-right: 2rem;
   border: 2px solid #374151;
-  border-radius: 10px;
-  font-size: 0.95rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
   font-family: inherit;
   transition: all 0.3s ease;
   background: #1F2937;
@@ -168,8 +363,7 @@
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23D1D5DB' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 1rem center;
-  padding-right: 2.5rem;
+  background-position: right 0.6rem center;
 }
 
 .product-form-select:focus {
@@ -289,6 +483,10 @@
     grid-template-columns: 1fr;
   }
 
+  .product-form-group-full {
+    grid-column: 1;
+  }
+
   .product-form-actions {
     flex-direction: column-reverse;
   }
@@ -296,6 +494,29 @@
   .product-form-button-cancel,
   .product-form-button-save {
     width: 100%;
+  }
+
+  .product-form-desglose {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .product-form-desglose .product-form-group {
+    min-width: 0;
+  }
+
+  .product-form-desglose-times,
+  .product-form-desglose-eq {
+    padding: 0.25rem 0;
+    text-align: center;
+  }
+
+  .product-form-section-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .product-form-info-popup {
+    max-width: 240px;
   }
 }
 

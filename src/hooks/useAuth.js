@@ -62,11 +62,11 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const preferences = getSessionPreferences();
-    const keepSessionActive = preferences.keepSessionActive;
+    getSessionPreferences().then((preferences) => {
+      const keepSessionActive = preferences.keepSessionActive;
 
-    // Obtener la sesión actual al cargar
-    supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
+      // Obtener la sesión actual al cargar
+      supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
       if (initialSession) {
         if (isSessionExpired(initialSession)) {
           if (keepSessionActive) {
@@ -97,37 +97,39 @@ export function useAuth() {
     // Escuchar cambios en el estado de autenticación
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session) {
-        if (isSessionExpired(session)) {
-          if (keepSessionActive) {
-            // Intentar renovar la sesión
-            console.log('Sesión expirada en cambio de estado, intentando renovar...');
-            const refreshed = await refreshSession();
-            if (refreshed) {
-              setSession(refreshed);
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      getSessionPreferences().then(async (prefs) => {
+        const keepActive = prefs.keepSessionActive;
+        if (session) {
+          if (isSessionExpired(session)) {
+            if (keepActive) {
+              console.log('Sesión expirada en cambio de estado, intentando renovar...');
+              const refreshed = await refreshSession();
+              if (refreshed) {
+                setSession(refreshed);
+              } else {
+                await supabase.auth.signOut();
+                setSession(null);
+              }
             } else {
+              console.log('Sesión expirada, cerrando sesión...');
               await supabase.auth.signOut();
               setSession(null);
             }
           } else {
-            console.log('Sesión expirada, cerrando sesión...');
-            await supabase.auth.signOut();
-            setSession(null);
+            setSession(session);
           }
         } else {
-          setSession(session);
+          setSession(null);
         }
-      } else {
-        setSession(null);
-      }
-      setLoading(false);
+        setLoading(false);
+      });
     });
 
     // Verificar periódicamente si la sesión necesita renovación (cada 1 minuto)
     const checkExpirationInterval = setInterval(async () => {
       try {
-        const currentPrefs = getSessionPreferences();
+        const currentPrefs = await getSessionPreferences();
         const shouldKeepActive = currentPrefs.keepSessionActive;
 
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
@@ -186,6 +188,7 @@ export function useAuth() {
       subscription.unsubscribe();
       clearInterval(checkExpirationInterval);
     };
+    });
   }, [session?.access_token]);
 
   return { session, loading };

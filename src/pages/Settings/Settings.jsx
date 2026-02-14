@@ -39,6 +39,34 @@ import './Settings.css';
 
 const LOCAL_SERVERS_STORAGE_KEY = 'cocostock_local_servers';
 
+async function loadLocalServersFromStorage() {
+  try {
+    const { getItem } = await import('../../utils/secureStorage');
+    const stored = await getItem(LOCAL_SERVERS_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(LOCAL_SERVERS_STORAGE_KEY) : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+  } catch (e) {
+    console.warn('Error al cargar servidores locales:', e);
+  }
+  return [];
+}
+
+async function saveLocalServersToStorage(list) {
+  try {
+    const { setItem } = await import('../../utils/secureStorage');
+    await setItem(LOCAL_SERVERS_STORAGE_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.warn('Error al guardar servidores locales:', e);
+  }
+}
+
 function isElectron() {
   return typeof window !== 'undefined' && window.electronAPI;
 }
@@ -105,19 +133,9 @@ function Settings() {
     activo: true,
   });
 
-  // Estados para Servidores locales (solo en Electron, con sesión)
-  const [localServersList, setLocalServersList] = useState(() => {
-    try {
-      const stored = localStorage.getItem(LOCAL_SERVERS_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return Array.isArray(parsed) ? parsed : [];
-      }
-    } catch (e) {
-      console.warn('Error al cargar servidores locales:', e);
-    }
-    return [];
-  });
+  // Estados para Servidores locales (solo en Electron, con sesión; datos cifrados en local)
+  const [localServersList, setLocalServersList] = useState([]);
+  const [localServersLoaded, setLocalServersLoaded] = useState(false);
   const [serverStatus, setServerStatus] = useState({ running: false, servers: [] });
   const [serverError, setServerError] = useState('');
   const [serverLoading, setServerLoading] = useState(false);
@@ -135,6 +153,13 @@ function Settings() {
   const [success, setSuccess] = useState('');
 
   const availablePermissions = getAvailablePermissions();
+
+  useEffect(() => {
+    loadLocalServersFromStorage().then((list) => {
+      setLocalServersList(list);
+      setLocalServersLoaded(true);
+    });
+  }, []);
 
   useEffect(() => {
     const getUser = async () => {
@@ -277,14 +302,11 @@ function Settings() {
     }
   }, [roleName, permissions?.view_settings_authorized_ips, activeTab]);
 
-  // Persistir lista de servidores locales
+  // Persistir lista de servidores locales (cifrada)
   useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_SERVERS_STORAGE_KEY, JSON.stringify(localServersList));
-    } catch (e) {
-      console.warn('Error al guardar servidores locales:', e);
-    }
-  }, [localServersList]);
+    if (!localServersLoaded) return;
+    saveLocalServersToStorage(localServersList);
+  }, [localServersList, localServersLoaded]);
 
   // Estado de servidores locales (solo en Electron, pestaña activa)
   useEffect(() => {
@@ -631,6 +653,14 @@ function Settings() {
       }
       if (userFormData.password !== userFormData.confirmPassword) {
         setError('Las contraseñas no coinciden');
+        return;
+      }
+      if(!userFormData.role_name){
+        setError('El rol es requerido');
+        return;
+      }
+      if(userFormData.role_name !== 'admin' && !userFormData.restaurant_id){
+        setError('El restaurante es requerido');
         return;
       }
       await createUser({
@@ -1280,19 +1310,21 @@ function Settings() {
                   </select>
                 </div>
 
-                <div className="settings-form-group">
-                  <label>Restaurante</label>
-                  <select
-                    value={userFormData.restaurant_id || ''}
-                    onChange={(e) => setUserFormData({ ...userFormData, restaurant_id: e.target.value || '' })}
-                    className="settings-role-select"
-                  >
-                    <option value="">Sin restaurante</option>
-                    {restaurants.map((r) => (
-                      <option key={r.id} value={r.id}>{r.nombre}</option>
-                    ))}
-                  </select>
-                </div>
+                {userFormData.role_name !== 'admin' && (
+                  <div className="settings-form-group">
+                    <label>Restaurante</label>
+                    <select
+                      value={userFormData.restaurant_id || ''}
+                      onChange={(e) => setUserFormData({ ...userFormData, restaurant_id: e.target.value || '' })}
+                      className="settings-role-select"
+                    >
+                      <option value="">Sin restaurante</option>
+                      {restaurants.map((r) => (
+                        <option key={r.id} value={r.id}>{r.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="settings-form-group">
                   <label>Nombre Completo</label>

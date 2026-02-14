@@ -101,10 +101,17 @@ Los instaladores se generan en `release/`.
 
 ### Build de macOS desde GitHub Actions
 
-El repositorio incluye un workflow para compilar en macOS sin máquina Mac. Configura en el repo los secrets:
+El repositorio incluye un workflow para compilar en macOS sin máquina Mac. Genera **ambas arquitecturas** (Intel y Apple Silicon):
+
+- `CocoStock-{version}-x64.dmg` / `.zip` → platform: **darwin-x64** en app_releases
+- `CocoStock-{version}-arm64.dmg` / `.zip` → platform: **darwin-arm64** en app_releases
+
+Configura en el repo los secrets:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
+
+Tras descargar los artifacts, sube los archivos al bucket `app-releases` y registra cada uno en la tabla `app_releases` con su `platform` correspondiente.
 
 ---
 

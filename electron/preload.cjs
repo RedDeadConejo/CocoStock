@@ -8,7 +8,15 @@
  */
 
 const { contextBridge, ipcRenderer } = require('electron');
-const platform = process.platform || 'win32'; // win32, darwin, linux
+
+// Plataforma para actualizaciones: win32, darwin-x64, darwin-arm64, linux, linux-arm64
+const platform = process.platform || 'win32';
+const arch = process.arch || 'x64';
+const platformKey = (() => {
+  if (platform === 'darwin') return arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64';
+  if (platform === 'linux') return arch === 'arm64' ? 'linux-arm64' : 'linux';
+  return platform; // win32, etc.
+})();
 
 // Exponer APIs protegidas al renderer
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -39,6 +47,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     cancelDownload: () => ipcRenderer.invoke('updater:cancel-download'),
     openInstaller: (localPath) => ipcRenderer.invoke('updater:open-installer', localPath),
   },
-  platform,
+  platform: platformKey,
 });
 

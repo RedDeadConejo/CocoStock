@@ -27,8 +27,7 @@ function Account({ session }) {
   const progressIntervalRef = useRef(null);
 
   useEffect(() => {
-    const prefs = getSessionPreferences();
-    setKeepSessionActiveState(prefs.keepSessionActive);
+    getSessionPreferences().then((prefs) => setKeepSessionActiveState(prefs.keepSessionActive));
   }, []);
 
   const handleCheckUpdates = async () => {
@@ -117,7 +116,7 @@ function Account({ session }) {
     setSaving(true);
     setMessage('');
     try {
-      setKeepSessionActive(enabled);
+      await setKeepSessionActive(enabled);
       setKeepSessionActiveState(enabled);
       setMessage(enabled 
         ? 'Sesión persistente activada. La sesión no expirará hasta que cierres la aplicación o cierres sesión manualmente.'

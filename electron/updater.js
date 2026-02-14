@@ -42,9 +42,10 @@ export async function downloadUpdate(downloadUrl, userDataPath, fileName = null,
     try {
       const u = new URL(downloadUrl);
       const pathname = u.pathname || '';
-      destFileName = pathname.split('/').filter(Boolean).pop() || 'installer.exe';
-    } catch {
-      destFileName = 'installer.exe';
+      destFileName = pathname.split('/').filter(Boolean).pop();
+    } catch {}
+    if (!destFileName) {
+      destFileName = process.platform === 'darwin' ? 'CocoStock-mac.zip' : 'installer.exe';
     }
   }
 

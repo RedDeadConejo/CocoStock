@@ -463,6 +463,7 @@ export function useRole(userId) {
   // Helpers sincrónicos basados en el estado actual
   const isAdmin = roleName === ROLES.ADMIN;
   const isAlmacen = roleName === ROLES.ALMACEN;
+  const isGestorAlmacen = roleName === ROLES.GESTOR_ALMACEN;
   const isRestaurante = roleName === ROLES.RESTAURANTE;
   
   // Verificar permisos sincrónicamente (basado en estado cargado)
@@ -485,6 +486,7 @@ export function useRole(userId) {
     // Helpers rápidos
     isAdmin,
     isAlmacen,
+    isGestorAlmacen,
     isRestaurante,
   };
 }

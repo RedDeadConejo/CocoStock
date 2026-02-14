@@ -24,6 +24,7 @@ export async function getDishesByRestaurant(restaurantId) {
         id,
         product_id,
         quantity,
+        unit,
         products (
           id,
           nombre,
@@ -51,6 +52,7 @@ export async function getDishesByRestaurant(restaurantId) {
       id: di.id,
       product_id: di.product_id,
       quantity: di.quantity,
+      unit: di.unit || null,
       product: di.products,
     })),
     dish_ingredients: undefined,
@@ -161,6 +163,7 @@ export async function getDishIngredients(dishId) {
       id,
       product_id,
       quantity,
+      unit,
       products (
         id,
         nombre,
@@ -182,6 +185,7 @@ export async function getDishIngredients(dishId) {
     id: di.id,
     product_id: di.product_id,
     quantity: di.quantity,
+    unit: di.unit || null,
     product: di.products,
   }));
 }
@@ -189,7 +193,7 @@ export async function getDishIngredients(dishId) {
 /**
  * Establece los ingredientes de un plato (reemplaza todos)
  * @param {string} dishId - ID del plato
- * @param {Array<{ product_id: string, quantity: number }>} items - Lista de ingredientes
+ * @param {Array<{ product_id: string, quantity: number, unit?: string }>} items - Lista de ingredientes (quantity en unidad base del producto)
  */
 export async function setDishIngredients(dishId, items) {
   const { error: delError } = await supabase
@@ -209,6 +213,7 @@ export async function setDishIngredients(dishId, items) {
       dish_id: dishId,
       product_id: x.product_id,
       quantity: parseFloat(x.quantity) || 0,
+      unit: x.unit && String(x.unit).trim() ? String(x.unit).trim() : null,
     }));
 
   if (rows.length === 0) return [];

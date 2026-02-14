@@ -128,6 +128,9 @@ export async function getAllMerma(filters = {}) {
   if (filters.productId) {
     query = query.eq('product_id', filters.productId);
   }
+  if (filters.limit) {
+    query = query.limit(filters.limit);
+  }
 
   const { data, error } = await query;
 

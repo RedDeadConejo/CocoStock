@@ -26,11 +26,14 @@ En el panel del proyecto: **SQL Editor** → New query. Ejecuta **cada archivo**
 
 | Orden | Archivo | Contenido |
 |-------|---------|-----------|
-| 0 | `00_app_version.sql` | Tabla `app_version` (control de versión mínima en login). RLS lectura pública. |
+| 0 | `00_app_releases.sql` | Tabla `app_releases` (actualizaciones). Platform: win32, darwin-x64, darwin-arm64, linux. |
+| 0a | `00a_app_releases_mac_arch.sql` | (Opcional) Migración si tenías releases con platform='darwin'. |
+| 0b | `00_app_version.sql` | Tabla `app_version` (control de versión mínima en login). RLS lectura pública. |
 | 1 | `01_roles_perfiles_restaurantes.sql` | Tablas `user_roles`, `user_profiles`, `restaurants`. Trigger perfil nuevo usuario. Función `is_user_admin`. RLS. |
 | 2 | `02_productos_inventario.sql` | Tablas `products`, `suppliers`, `product_suppliers`, `product_changes_history`, `stock_history`. RLS. `soft_delete_supplier`. |
 | 3 | `03_pedidos_compras.sql` | Tablas `orders`, `order_items`, `purchases`, `purchase_items` (con `restaurant_id`, `quantity_requested`, `quantity_sent`). RLS. |
 | 4 | `04_platos_merma.sql` | Tablas `dishes`, `dish_ingredients`, `merma`, `merma_server_tokens`. RLS. RPCs merma. |
+| 4b | `04b_dish_ingredients_unit.sql` | Columna `unit` en `dish_ingredients` (unidad por ingrediente en recetas). |
 | 5 | `05_rpc_usuarios.sql` | `get_all_users_with_profiles`. |
 | 6 | `06_rpc_roles_usuarios.sql` | `user_has_permission`, `rename_role`, `delete_role`, `get_view_permissions_map`. |
 | 7 | `07_rpc_pedidos.sql` | `create_order`, `complete_order`. |
@@ -38,8 +41,11 @@ En el panel del proyecto: **SQL Editor** → New query. Ejecuta **cada archivo**
 | 9 | `09_rpc_productos.sql` | `create_product`, `update_product`, `soft_delete_product`. |
 | 10 | `10_rpc_listas_creador.sql` | `get_orders_with_creators`, `get_purchases_with_creators`. |
 | 11 | `11_permisos_roles.sql` | Permisos por defecto para roles `admin`, `almacen`, `tienda`. |
+| 12 | `12_storage_app_releases.sql` | Políticas de Storage: solo usuarios autenticados pueden descargar; solo Admin puede subir releases. |
 
 **Importante:** No cambies el orden. Cada script depende del anterior (tablas, funciones o permisos).
+
+**Storage (app-releases):** Tras ejecutar `12_storage_app_releases.sql`, el bucket `app-releases` debe ser **privado**. Si no existe, créalo en Storage → New bucket → id: `app-releases` → Private. Si ya existe como público, configúralo como privado en la configuración del bucket.
 
 ---
 

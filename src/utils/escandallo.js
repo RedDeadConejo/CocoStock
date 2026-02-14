@@ -22,16 +22,18 @@ export function getUnitCost(product) {
 /**
  * Formatea la unidad del producto para mostrar (medida, formato)
  * @param {object} product
+ * @param {string} [unitOverride] - Unidad del ingrediente si distinta
  * @returns {string}
  */
-export function formatUnit(product) {
+export function formatUnit(product, unitOverride = null) {
+  if (unitOverride) return unitOverride;
   if (!product) return 'ud';
   return [product.medida, product.formato].filter(Boolean).join(' ') || 'ud';
 }
 
 /**
  * Calcula el escandallo de un plato
- * @param {object} dish - Plato con ingredients[] y cada ingredient con product, quantity
+ * @param {object} dish - Plato con ingredients[] y cada ingredient con product, quantity, unit (opcional)
  * @returns {{ lines: Array<{ product, quantity, unit, unitCost, cost }>, totalCost: number }}
  */
 export function computeEscandallo(dish) {
@@ -45,7 +47,7 @@ export function computeEscandallo(dish) {
       product: p,
       productName: p?.nombre ?? 'Producto',
       quantity: q,
-      unit: formatUnit(p),
+      unit: formatUnit(p, ing.unit),
       unitCost,
       cost,
     };

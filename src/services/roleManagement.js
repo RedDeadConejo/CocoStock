@@ -414,6 +414,7 @@ export function getAvailablePermissions() {
     // Acceso a vistas/pestañas
     view_dashboard: 'Acceso: Inicio',
     dashboard_almacen: 'Ver dashboard de almacén (atajos almacén)',
+    dashboard_gestor_almacen: 'Ver dashboard de gestor de almacén (atajos gestor)',
     dashboard_restaurante: 'Ver dashboard de restaurante (atajos restaurante)',
     view_inventory: 'Acceso: Inventario',
     view_orders: 'Acceso: Pedidos',
