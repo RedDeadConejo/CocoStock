@@ -49,9 +49,10 @@ function RoleGuard({ allowedRoles, children, fallback = null, userId }) {
 
     // Verificar si el cargo está en los permitidos
     const rolesArray = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+    // Normalizar para comparación: roles nuevos pueden venir con distinto casing/espacios
+    const normalizedAllowed = rolesArray.map((r) => String(r ?? '').trim().toLowerCase()).filter(Boolean);
     
-    // Comparación directa (los roles ya están en el formato correcto)
-    const access = rolesArray.includes(roleName);
+    const access = normalizedAllowed.includes(normalizedRoleName);
     
     // Log de depuración (solo si no tiene acceso para no saturar la consola)
     if (!access) {

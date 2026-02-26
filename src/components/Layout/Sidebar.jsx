@@ -41,10 +41,12 @@ function Sidebar({ currentView, onViewChange, onLogout, isOpen, onToggle, userId
   // Filtrar según permisos de vistas (desde DB o fallback por defecto)
   const menuItems = useMemo(() => {
     if (loading || !roleName) return [];
+    const normalizedRole = String(roleName).trim().toLowerCase();
     return allMenuItems.filter((item) => {
       const allowedRoles = viewPermissionsMap?.[item.id] ?? DEFAULT_VIEW_ROLES[item.id];
-      if (!allowedRoles) return false;
-      return roleName === ROLES.ADMIN || allowedRoles.includes(roleName);
+      if (!allowedRoles || !Array.isArray(allowedRoles)) return false;
+      if (normalizedRole === String(ROLES.ADMIN || '').trim().toLowerCase()) return true;
+      return allowedRoles.some((r) => String(r ?? '').trim().toLowerCase() === normalizedRole);
     });
   }, [allMenuItems, loading, roleName, viewPermissionsMap]);
 

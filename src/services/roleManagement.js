@@ -299,17 +299,20 @@ export async function updateUserProfile(userId, profileData) {
   const updates = {};
   
   if (profileData.role_name !== undefined) {
+    const roleNameToSet = typeof profileData.role_name === 'string'
+      ? profileData.role_name.trim().toLowerCase()
+      : profileData.role_name;
     // Verificar que el rol existe
     const { data: roleData, error: roleError } = await supabase
       .from(ROLES_TABLE)
       .select('role_name')
-      .eq('role_name', profileData.role_name)
+      .eq('role_name', roleNameToSet)
       .single();
 
     if (roleError || !roleData) {
       throw new Error('El rol especificado no existe');
     }
-    updates.role_name = profileData.role_name;
+    updates.role_name = roleNameToSet;
   }
   
   if (profileData.full_name !== undefined) {
@@ -478,8 +481,11 @@ export function getAvailableViews() {
 export async function getViewPermissionsMap() {
   try {
     const { data, error } = await supabase.rpc('get_view_permissions_map');
-    if (!error && data && typeof data === 'object') {
-      return data;
+    if (!error && data != null) {
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
     }
   } catch (_) {
     // RPC no disponible o error: usar lógica en cliente
@@ -491,11 +497,13 @@ export async function getViewPermissionsMap() {
     map[viewId] = ['admin'];
   });
   roles.forEach((role) => {
-    const roleName = role.role_name;
+    const roleName = role.role_name ? String(role.role_name).trim().toLowerCase() : '';
+    if (!roleName) return;
     const permissions = role.permissions || {};
     VIEW_IDS.forEach((viewId) => {
       const permKey = `view_${viewId}`;
-      if (permissions[permKey] === true && !map[viewId].includes(roleName)) {
+      const hasPerm = permissions[permKey] === true || permissions[permKey] === 'true';
+      if (hasPerm && !map[viewId].includes(roleName)) {
         map[viewId].push(roleName);
       }
     });
