@@ -27,6 +27,8 @@ Aplicación de escritorio para el control de inventario, pedidos, compras y merm
 - **Backend:** Supabase (PostgreSQL, Auth, Storage, Edge Functions)
 - **UI:** CSS con variables, diseño responsive
 
+La base de datos está organizada por esquemas: **public** (backoffice) y **tpv** (punto de venta). Ver [docs/DATABASES.md](docs/DATABASES.md).
+
 ---
 
 ## Requisitos

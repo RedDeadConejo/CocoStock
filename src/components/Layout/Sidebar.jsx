@@ -10,6 +10,7 @@ import { ROLES } from '../../services/roles';
 /** Solo admin por defecto; el resto de roles obtienen permisos desde la BD */
 const DEFAULT_VIEW_ROLES = {
   dashboard: [ROLES.ADMIN],
+  tpv: [ROLES.ADMIN],
   inventory: [ROLES.ADMIN],
   orders: [ROLES.ADMIN],
   platos: [ROLES.ADMIN],
@@ -27,6 +28,7 @@ function Sidebar({ currentView, onViewChange, onLogout, isOpen, onToggle, userId
   // Elementos del menú (id debe coincidir con vista en Layout)
   const allMenuItems = useMemo(() => [
     { id: 'dashboard', label: 'Inicio', icon: '📊' },
+    { id: 'tpv', label: 'TPV', icon: '🖥️' },
     { id: 'inventory', label: 'Inventario', icon: '📦' },
     { id: 'orders', label: 'Pedidos', icon: '🛒' },
     { id: 'platos', label: 'Platos del local', icon: '🍽️' },

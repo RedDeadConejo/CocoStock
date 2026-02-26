@@ -16,6 +16,7 @@ import Suppliers from '../../pages/Suppliers/Suppliers';
 import Statistics from '../../pages/Statistics/Statistics';
 import Account from '../../pages/Account/Account';
 import Settings from '../../pages/Settings/Settings';
+import Tpv from '../../pages/Tpv/Tpv';
 import Sidebar from './Sidebar';
 import RoleGuard, { ROLES } from '../RoleGuard/RoleGuard';
 import { useRole, clearRoleCache } from '../../hooks/useRole';
@@ -31,6 +32,7 @@ const DEFAULT_VIEW_ROLES = {
   purchases: [ROLES.ADMIN],
   suppliers: [ROLES.ADMIN],
   statistics: [ROLES.ADMIN],
+  tpv: [ROLES.ADMIN],
   account: [ROLES.ADMIN],
   settings: [ROLES.ADMIN],
 };
@@ -271,6 +273,12 @@ function Layout({ session }) {
         return (
           <RoleGuard allowedRoles={getAllowedRolesForView('settings')} userId={userId} fallback={fallbackDenied()}>
             <Settings />
+          </RoleGuard>
+        );
+      case 'tpv':
+        return (
+          <RoleGuard allowedRoles={getAllowedRolesForView('tpv')} userId={userId} fallback={fallbackDenied()}>
+            <Tpv />
           </RoleGuard>
         );
       default:
