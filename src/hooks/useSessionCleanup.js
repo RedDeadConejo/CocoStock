@@ -46,6 +46,11 @@ function cleanupStorage() {
  */
 export function useSessionCleanup() {
   useEffect(() => {
+    // En Electron la sesión debe persistir al cerrar la ventana (sesión ligada al equipo en disco).
+    if (typeof window !== 'undefined' && window.electronAPI?.deviceSession) {
+      return;
+    }
+
     // Función para manejar el cierre
     const handleBeforeUnload = () => {
       // Limpiar el storage de forma síncrona (esto es lo único que funciona en beforeunload)

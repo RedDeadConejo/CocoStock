@@ -1,11 +1,11 @@
 {
   "name": "cocostock",
   "private": true,
-  "version": "1.9.10",
+  "version": "1.10.2",
   "description": "CocoStock - Gestión de inventario y stock para restaurantes",
   "author": "RedDeadConejo",
   "type": "module",
-  "main": "electron/main.js",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -16,6 +16,8 @@
     "electron:dev": "npm run sync-version && vite build && electron .",
     "electron:build": "npm run sync-version && vite build && electron-builder",
     "electron:build:win": "npm run sync-version && vite build && electron-builder --win",
+    "build:legacy-win7-renderer": "vite build --config vite.config.legacy-win7.mjs",
+    "electron:build:win7": "npm run sync-version && npm run build:legacy-win7-renderer && electron-builder --win --config electron-builder.win7.json",
     "electron:build:mac": "npm run sync-version && vite build && electron-builder --mac",
     "electron:build:mac:x64": "npm run sync-version && vite build && electron-builder --mac --x64",
     "electron:build:mac:arm64": "npm run sync-version && vite build && electron-builder --mac --arm64",

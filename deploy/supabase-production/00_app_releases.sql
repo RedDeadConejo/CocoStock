@@ -34,13 +34,44 @@ ALTER TABLE app_releases ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Lectura pública de releases activos" ON app_releases;
 CREATE POLICY "Lectura pública de releases activos" ON app_releases
-  FOR SELECT USING (true);
+  FOR SELECT
+  TO anon, authenticated
+  USING (true);
 
 DROP POLICY IF EXISTS "Solo servicio puede escribir app_releases" ON app_releases;
-CREATE POLICY "Solo servicio puede escribir app_releases" ON app_releases
-  FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "app_releases_insert_manage" ON app_releases;
+DROP POLICY IF EXISTS "app_releases_update_manage" ON app_releases;
+DROP POLICY IF EXISTS "app_releases_delete_manage" ON app_releases;
+
+CREATE POLICY "app_releases_insert_manage" ON app_releases
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    public.is_user_admin(COALESCE((SELECT auth.uid()), (((SELECT auth.jwt())->>'sub')::uuid)))
+    OR public.user_has_permission(COALESCE((SELECT auth.uid()), (((SELECT auth.jwt())->>'sub')::uuid)), 'manage_app_releases')
+  );
+
+CREATE POLICY "app_releases_update_manage" ON app_releases
+  FOR UPDATE TO authenticated
+  USING (
+    public.is_user_admin(COALESCE((SELECT auth.uid()), (((SELECT auth.jwt())->>'sub')::uuid)))
+    OR public.user_has_permission(COALESCE((SELECT auth.uid()), (((SELECT auth.jwt())->>'sub')::uuid)), 'manage_app_releases')
+  )
+  WITH CHECK (
+    public.is_user_admin(COALESCE((SELECT auth.uid()), (((SELECT auth.jwt())->>'sub')::uuid)))
+    OR public.user_has_permission(COALESCE((SELECT auth.uid()), (((SELECT auth.jwt())->>'sub')::uuid)), 'manage_app_releases')
+  );
+
+CREATE POLICY "app_releases_delete_manage" ON app_releases
+  FOR DELETE TO authenticated
+  USING (
+    public.is_user_admin(COALESCE((SELECT auth.uid()), (((SELECT auth.jwt())->>'sub')::uuid)))
+    OR public.user_has_permission(COALESCE((SELECT auth.uid()), (((SELECT auth.jwt())->>'sub')::uuid)), 'manage_app_releases')
+  );
+
+GRANT SELECT ON TABLE public.app_releases TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE ON TABLE public.app_releases TO authenticated;
 
 -- Comentarios
-COMMENT ON TABLE app_releases IS 'Releases de la app para actualizaciones; file_path es la ruta dentro del bucket app-releases en Storage';
-COMMENT ON COLUMN app_releases.platform IS 'Plataforma: win32 (Windows), darwin-x64 (Mac Intel), darwin-arm64 (Mac Apple Silicon), linux, linux-arm64';
+COMMENT ON TABLE app_releases IS 'Releases: SELECT público (updater); escritura solo admin o manage_app_releases; file_path = ruta en bucket app-releases';
+COMMENT ON COLUMN app_releases.platform IS 'Plataforma: win32, win32-win7 (legacy Win7), darwin-x64, darwin-arm64, linux, linux-arm64';
 COMMENT ON COLUMN app_releases.file_path IS 'Nombre del archivo en el bucket (ej: CocoStock-Setup-1.9.1.exe, CocoStock-1.9.5-arm64.dmg)';

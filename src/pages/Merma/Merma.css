@@ -85,16 +85,52 @@
   color: #E5E7EB;
 }
 
-/* Lista de productos (táctil) */
-.merma-local-product-list {
-  margin-top: 0.5rem;
-  max-height: 280px;
+/* Selector de producto: lista en overlay encima del campo (tablet / táctil) */
+.merma-local-product-field {
+  position: relative;
+  z-index: 1;
+}
+
+.merma-local-product-field--open {
+  z-index: 30;
+}
+
+.merma-local-product-input-shell {
+  position: relative;
+  width: 100%;
+}
+
+/* Lista de productos (táctil): flotante por encima del input, sin empujar el formulario */
+.merma-local-product-field .merma-local-product-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 0.5rem;
+  margin-top: 0;
+  max-height: min(280px, 42vh);
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   border: 1px solid #374151;
   border-radius: 12px;
   background: #000000;
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.55);
+}
+
+@media (max-width: 900px), (max-height: 920px) {
+  .merma-local-container {
+    padding: 1.25rem;
+  }
+
+  .merma-local-title {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .merma-local-product-field .merma-local-product-list {
+    max-height: min(220px, 36vh);
+  }
 }
 
 .merma-local-product-item {
@@ -223,6 +259,45 @@
   font-weight: 700;
   border-radius: 14px;
   margin-top: 0.5rem;
+}
+
+.merma-local-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.merma-local-title-row .merma-local-title {
+  margin: 0;
+  text-align: left;
+  flex: 1 1 auto;
+  min-width: min(100%, 12rem);
+}
+
+.merma-local-reload {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #E5E7EB;
+  background: #374151;
+  border: 1px solid #4B5563;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.merma-local-reload:hover,
+.merma-local-reload:active {
+  background: #4B5563;
+  border-color: #DC2626;
+  color: #FFFFFF;
 }
 
 .merma-local-title {

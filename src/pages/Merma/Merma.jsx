@@ -3,7 +3,7 @@
  * Registro de pérdidas/desperdicios por restaurante
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '../../services/supabase';
 import { useRole } from '../../hooks/useRole';
 import { ROLES } from '../../services/roles';
@@ -15,6 +15,7 @@ import {
   getAllMerma,
   createMerma,
   deleteMerma,
+  normalizeMermaQuantity,
 } from '../../services/merma';
 import { formatCurrency } from '../../utils/formatters';
 import { formatDate } from '../../utils/formatters';
@@ -57,6 +58,8 @@ function Merma() {
   });
   // Búsqueda de producto (solo interfaz local táctil)
   const [productSearchQuery, setProductSearchQuery] = useState('');
+  const [productSearchFocused, setProductSearchFocused] = useState(false);
+  const productSearchBlurTimer = useRef(null);
 
   const canEdit = isAdmin || isAlmacen || isRestaurante;
   const effectiveRestaurantId = isRestaurante
@@ -109,6 +112,30 @@ function Merma() {
     }
   }, [roleName, isAdmin, isAlmacen, isRestaurante, currentUser?.id]);
 
+  const loadProducts = async () => {
+    try {
+      const data = await getProducts();
+      setProducts(data || []);
+    } catch (err) {
+      console.error('Error al cargar productos:', err);
+    }
+  };
+
+  const loadMerma = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const data = isAdmin || isAlmacen
+        ? await getAllMerma({ restaurantId: effectiveRestaurantId })
+        : await getMermaByRestaurant(effectiveRestaurantId);
+      setMerma(data || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [effectiveRestaurantId, isAdmin, isAlmacen]);
+
   useEffect(() => {
     if (localAccess) return;
     if (effectiveRestaurantId) {
@@ -117,7 +144,7 @@ function Merma() {
       setMerma([]);
       setLoading(false);
     }
-  }, [localAccess, effectiveRestaurantId]);
+  }, [localAccess, effectiveRestaurantId, loadMerma]);
 
   useEffect(() => {
     if (localAccess && localMermaConfig?.sessionId) {
@@ -138,42 +165,42 @@ function Merma() {
     }
   }, [localAccess, localMermaConfig?.sessionId, effectiveRestaurantId]);
 
-  const loadProducts = async () => {
-    try {
-      const data = await getProducts();
-      setProducts(data || []);
-    } catch (err) {
-      console.error('Error al cargar productos:', err);
-    }
-  };
+  useEffect(() => {
+    if (localAccess || !effectiveRestaurantId) return undefined;
 
-  const loadMerma = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const data = isAdmin || isAlmacen
-        ? await getAllMerma({ restaurantId: effectiveRestaurantId })
-        : await getMermaByRestaurant(effectiveRestaurantId);
-      setMerma(data || []);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const channel = supabase
+      .channel(`realtime-merma-${effectiveRestaurantId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'merma',
+          filter: `restaurant_id=eq.${effectiveRestaurantId}`,
+        },
+        () => {
+          loadMerma();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [localAccess, effectiveRestaurantId, loadMerma]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
-    const quantity = parseFloat(formData.quantity);
+    const quantity = normalizeMermaQuantity(formData.quantity);
     if (!formData.product_id) {
       setError('Selecciona un producto');
       return;
     }
-    if (isNaN(quantity) || quantity <= 0) {
-      setError('La cantidad debe ser mayor a 0');
+    if (quantity === null) {
+      setError('La cantidad debe ser un número entero mayor que 0 (unidades, sin decimales)');
       return;
     }
 
@@ -229,10 +256,7 @@ function Merma() {
     }
   };
 
-  const formatUnit = (p) => {
-    if (!p) return 'ud';
-    return [p.medida, p.formato].filter(Boolean).join(' ') || 'ud';
-  };
+  const formatMermaQty = (q) => Math.max(0, Math.round(Number(q)));
 
   // Productos filtrados por nombre (interfaz local)
   const filteredProductsLocal = useMemo(() => {
@@ -246,13 +270,35 @@ function Merma() {
     );
   }, [localAccess, products, productSearchQuery]);
 
+  const showLocalProductList =
+    localAccess &&
+    !formData.product_id &&
+    (productSearchFocused || productSearchQuery.trim() !== '');
+
+  useEffect(() => {
+    return () => {
+      if (productSearchBlurTimer.current) {
+        clearTimeout(productSearchBlurTimer.current);
+      }
+    };
+  }, []);
+
   // Si es acceso local, mostrar interfaz simplificada (sin sesión: usa cuenta que inició el servidor)
   if (localAccess) {
     if (!localMermaConfig) {
       return (
         <div className="merma merma-local">
           <div className="merma-local-container">
-            <h1 className="merma-local-title">📉 Registro de Merma</h1>
+            <div className="merma-local-title-row">
+              <h1 className="merma-local-title">📉 Registro de Merma</h1>
+              <button
+                type="button"
+                className="merma-local-reload"
+                onClick={() => window.location.reload()}
+              >
+                🔄 Recargar página
+              </button>
+            </div>
             <div className="merma-error">
               <span>⚠️</span>
               <span>Configuración no válida. Accede desde la URL del servidor de merma (IP autorizada).</span>
@@ -265,8 +311,17 @@ function Merma() {
     return (
       <div className="merma merma-local">
         <div className="merma-local-container">
-          <h1 className="merma-local-title">📉 Registro de Merma</h1>
-          
+          <div className="merma-local-title-row">
+            <h1 className="merma-local-title">📉 Registro de Merma</h1>
+            <button
+              type="button"
+              className="merma-local-reload"
+              onClick={() => window.location.reload()}
+            >
+              🔄 Recargar página
+            </button>
+          </div>
+
           {error && (
             <div className="merma-error">
               <span>⚠️</span>
@@ -288,33 +343,76 @@ function Merma() {
 
           {localMermaConfig.sessionId && (
             <form onSubmit={handleSubmit} className="merma-form merma-form-local">
-              <div className="merma-form-group merma-form-group-touch">
+              <div
+                className={`merma-form-group merma-form-group-touch merma-local-product-field${showLocalProductList ? ' merma-local-product-field--open' : ''}`}
+              >
                 <label htmlFor="local-product-search">Buscar producto por nombre</label>
-                <input
-                  id="local-product-search"
-                  type="search"
-                  inputMode="search"
-                  autoComplete="off"
-                  className="merma-local-search"
-                  value={
-                    formData.product_id
-                      ? (products.find((p) => p.id === formData.product_id)?.nombre || '')
-                      : productSearchQuery
-                  }
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setProductSearchQuery(v);
-                    if (!v) setFormData((prev) => ({ ...prev, product_id: '' }));
-                  }}
-                  onFocus={() => {
-                    if (formData.product_id) {
-                      const name = products.find((p) => p.id === formData.product_id)?.nombre || '';
-                      setFormData((prev) => ({ ...prev, product_id: '' }));
-                      setProductSearchQuery(name);
+                <div className="merma-local-product-input-shell">
+                  {showLocalProductList && (
+                    <div className="merma-local-product-list" role="listbox" aria-label="Productos">
+                      {filteredProductsLocal.slice(0, 50).map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          role="option"
+                          className="merma-local-product-item"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setFormData((prev) => ({ ...prev, product_id: p.id }));
+                            setProductSearchQuery('');
+                            setProductSearchFocused(false);
+                          }}
+                        >
+                          <span className="merma-local-product-name">{p.nombre}</span>
+                          {(p.referencia || p.medida || p.formato) && (
+                            <span className="merma-local-product-meta">
+                              {[p.referencia, p.medida, p.formato].filter(Boolean).join(' · ')}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                      {filteredProductsLocal.length === 0 && productSearchQuery.trim() && (
+                        <p className="merma-local-no-results">No hay productos con &quot;{productSearchQuery}&quot;</p>
+                      )}
+                    </div>
+                  )}
+                  <input
+                    id="local-product-search"
+                    type="search"
+                    inputMode="search"
+                    autoComplete="off"
+                    className="merma-local-search"
+                    value={
+                      formData.product_id
+                        ? (products.find((p) => p.id === formData.product_id)?.nombre || '')
+                        : productSearchQuery
                     }
-                  }}
-                  placeholder="Escribe para buscar..."
-                />
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setProductSearchQuery(v);
+                      if (!v) setFormData((prev) => ({ ...prev, product_id: '' }));
+                    }}
+                    onFocus={() => {
+                      if (productSearchBlurTimer.current) {
+                        clearTimeout(productSearchBlurTimer.current);
+                        productSearchBlurTimer.current = null;
+                      }
+                      if (formData.product_id) {
+                        const name = products.find((p) => p.id === formData.product_id)?.nombre || '';
+                        setFormData((prev) => ({ ...prev, product_id: '' }));
+                        setProductSearchQuery(name);
+                      }
+                      setProductSearchFocused(true);
+                    }}
+                    onBlur={() => {
+                      productSearchBlurTimer.current = setTimeout(() => {
+                        setProductSearchFocused(false);
+                        productSearchBlurTimer.current = null;
+                      }, 180);
+                    }}
+                    placeholder="Escribe para buscar..."
+                  />
+                </div>
                 {formData.product_id && (
                   <button
                     type="button"
@@ -327,51 +425,28 @@ function Merma() {
                     Cambiar producto
                   </button>
                 )}
-                <div className="merma-local-product-list" role="listbox" aria-label="Productos">
-                  {!formData.product_id &&
-                    filteredProductsLocal.slice(0, 50).map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        role="option"
-                        className="merma-local-product-item"
-                        onClick={() => {
-                          setFormData((prev) => ({ ...prev, product_id: p.id }));
-                          setProductSearchQuery('');
-                        }}
-                      >
-                        <span className="merma-local-product-name">{p.nombre}</span>
-                        {(p.referencia || p.medida || p.formato) && (
-                          <span className="merma-local-product-meta">
-                            {[p.referencia, p.medida, p.formato].filter(Boolean).join(' · ')}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  {!formData.product_id && filteredProductsLocal.length === 0 && productSearchQuery.trim() && (
-                    <p className="merma-local-no-results">No hay productos con &quot;{productSearchQuery}&quot;</p>
-                  )}
-                </div>
               </div>
 
               <div className="merma-form-group merma-form-group-touch">
-                <label htmlFor="local-quantity">Cantidad *</label>
+                <label htmlFor="local-quantity">Cantidad (unidades enteras) *</label>
                 <div className="merma-local-quantity-wrap">
                   <input
                     id="local-quantity"
                     type="text"
-                    inputMode="decimal"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     className="merma-local-input-touch"
                     value={formData.quantity}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, quantity: e.target.value }))}
-                    placeholder="0.00"
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        quantity: e.target.value.replace(/\D/g, ''),
+                      }))
+                    }
+                    placeholder="Ej: 5"
                     required
                   />
-                  {formData.product_id && (
-                    <span className="merma-local-unit">
-                      {formatUnit(products.find((p) => p.id === formData.product_id))}
-                    </span>
-                  )}
+                  <span className="merma-local-unit">unidades</span>
                 </div>
               </div>
 
@@ -457,6 +532,15 @@ function Merma() {
               {userRestaurant.nombre}
             </div>
           )}
+          <button
+            type="button"
+            className="merma-btn merma-btn-secondary"
+            onClick={() => window.location.reload()}
+            title="Recargar la página por si el servidor se reinició"
+          >
+            <span>🔄</span>
+            Recargar página
+          </button>
           {canEdit && effectiveRestaurantId && (
             <button
               type="button"
@@ -537,7 +621,7 @@ function Merma() {
                     <div className="merma-card-row">
                       <span className="merma-card-label">Cantidad</span>
                       <span className="merma-card-value">
-                        {Number(m.quantity)} {formatUnit(m.product)}
+                        {formatMermaQty(m.quantity)} unidades
                       </span>
                     </div>
                     {m.motivo && (
@@ -589,21 +673,23 @@ function Merma() {
               </div>
 
               <div className="merma-form-group">
-                <label htmlFor="form-quantity">Cantidad *</label>
+                <label htmlFor="form-quantity">Cantidad (unidades enteras) *</label>
                 <input
                   id="form-quantity"
                   type="text"
-                  inputMode="decimal"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={formData.quantity}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, quantity: e.target.value }))}
-                  placeholder="0.00"
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      quantity: e.target.value.replace(/\D/g, ''),
+                    }))
+                  }
+                  placeholder="Ej: 5"
                   required
                 />
-                {formData.product_id && (
-                  <span className="merma-form-unit">
-                    {formatUnit(products.find((p) => p.id === formData.product_id))}
-                  </span>
-                )}
+                <span className="merma-form-unit">unidades</span>
               </div>
 
               <div className="merma-form-group">

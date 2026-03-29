@@ -1,48 +1,43 @@
 /**
  * Hook personalizado para manejar la autenticación
- * Gestiona el estado de sesión y los cambios de autenticación
+ * En Electron: sesión en disco + validación Supabase en segundo plano (no bloquea "Cargando…").
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import { getSessionPreferences } from '../utils/sessionPreferences';
+import { signOutDesktopCleanup, forceResetAuthToLogin } from '../services/authSignOut';
+import {
+  applyElectronDeviceSessionOnStartup,
+  persistElectronDeviceSession,
+  clearElectronDeviceSessionFile,
+  shouldAutoRefreshJwtForElectron,
+} from '../services/deviceSession';
+import {
+  syncElectronDeviceSessionWithSupabase,
+  heartbeatElectronDeviceSession,
+} from '../services/deviceSessionServer';
 
-/**
- * Verifica si una sesión ha expirado
- */
+const AUTH_LOADING_WATCHDOG_MS = 30000;
+
 function isSessionExpired(session) {
   if (!session || !session.expires_at) {
     return true;
   }
-  
-  // Convertir expires_at (timestamp en segundos) a milisegundos
   const expiresAt = session.expires_at * 1000;
   const now = Date.now();
-  
-  // Considerar expirada si falta menos de 1 minuto (60 segundos)
-  // Esto da margen para refrescar antes de que expire completamente
-  return now >= (expiresAt - 60000);
+  return now >= expiresAt - 60000;
 }
 
-/**
- * Verifica si una sesión está cerca de expirar (para renovarla antes)
- */
 function isSessionNearExpiry(session) {
   if (!session || !session.expires_at) {
     return true;
   }
-  
   const expiresAt = session.expires_at * 1000;
   const now = Date.now();
-  const timeUntilExpiry = expiresAt - now;
-  
-  // Renovar si falta menos de 5 minutos (300000 ms)
-  return timeUntilExpiry < 300000;
+  return expiresAt - now < 300000;
 }
 
-/**
- * Intenta renovar la sesión usando el refresh token
- */
 async function refreshSession() {
   try {
     const { data, error } = await supabase.auth.refreshSession();
@@ -57,141 +52,282 @@ async function refreshSession() {
   }
 }
 
+function shouldKeepJwtAlive(keepSessionActive) {
+  return keepSessionActive === true || shouldAutoRefreshJwtForElectron();
+}
+
+/** Persistencia disco + RPC servidor (no bloquear splash). */
+async function electronPersistAndEnforce(setSession) {
+  if (typeof window === 'undefined' || !window.electronAPI?.deviceSession) return;
+  try {
+    const { data: { session: s } } = await supabase.auth.getSession();
+    if (!s?.refresh_token) return;
+    await persistElectronDeviceSession(s);
+    const sr = await syncElectronDeviceSessionWithSupabase();
+    if (!sr.ok && !sr.softError && !sr.skipped) {
+      await signOutDesktopCleanup();
+      setSession(null);
+    }
+  } catch (e) {
+    console.warn('electronPersistAndEnforce:', e);
+  }
+}
+
+/** @returns {Promise<boolean>} false si se cerró sesión. */
+async function persistIfElectron(event, session) {
+  if (typeof window === 'undefined' || !session || !window.electronAPI?.deviceSession) return true;
+  if (event !== 'SIGNED_IN' && event !== 'TOKEN_REFRESHED' && event !== 'INITIAL_SESSION') {
+    return true;
+  }
+  try {
+    await persistElectronDeviceSession(session);
+    const sr = await syncElectronDeviceSessionWithSupabase();
+    if (!sr.ok && !sr.softError && !sr.skipped) {
+      await signOutDesktopCleanup();
+      return false;
+    }
+  } catch (e) {
+    console.warn('persistIfElectron:', e);
+  }
+  return true;
+}
+
+async function enforceServerDeviceSession(setSession) {
+  try {
+    const sr = await syncElectronDeviceSessionWithSupabase();
+    if (sr.ok || sr.skipped || sr.softError) return;
+    await signOutDesktopCleanup();
+    setSession(null);
+  } catch (e) {
+    console.warn('enforceServerDeviceSession:', e);
+  }
+}
+
 export function useAuth() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const sessionRef = useRef(null);
+  sessionRef.current = session;
+  const loadingRef = useRef(loading);
+  loadingRef.current = loading;
 
   useEffect(() => {
-    getSessionPreferences().then((preferences) => {
-      const keepSessionActive = preferences.keepSessionActive;
-
-      // Obtener la sesión actual al cargar
-      supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
-      if (initialSession) {
-        if (isSessionExpired(initialSession)) {
-          if (keepSessionActive) {
-            // Intentar renovar la sesión
-            console.log('Sesión expirada, intentando renovar...');
-            const refreshed = await refreshSession();
-            if (refreshed) {
-              setSession(refreshed);
-            } else {
-              // Si no se puede renovar, cerrar sesión
-              await supabase.auth.signOut();
-              setSession(null);
-            }
-          } else {
-            // Si no está activada la opción, cerrar sesión normalmente
-            await supabase.auth.signOut();
-            setSession(null);
-          }
-        } else {
-          setSession(initialSession);
-        }
-      } else {
+    if (!loading) return undefined;
+    const timer = setTimeout(() => {
+      if (!loadingRef.current) return;
+      void (async () => {
+        console.warn(
+          'CocoStock: la autenticación tardó demasiado; se eliminan tokens guardados y se muestra el login.'
+        );
+        await forceResetAuthToLogin();
         setSession(null);
-      }
-      setLoading(false);
-    });
+        setLoading(false);
+      })();
+    }, AUTH_LOADING_WATCHDOG_MS);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
-    // Escuchar cambios en el estado de autenticación
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      getSessionPreferences().then(async (prefs) => {
-        const keepActive = prefs.keepSessionActive;
-        if (session) {
-          if (isSessionExpired(session)) {
-            if (keepActive) {
-              console.log('Sesión expirada en cambio de estado, intentando renovar...');
+  useEffect(() => {
+    let cancelled = false;
+    let touchCounter = 0;
+
+    const init = async () => {
+      try {
+        if (typeof window !== 'undefined' && window.electronAPI?.deviceSession) {
+          await applyElectronDeviceSessionOnStartup();
+        }
+        if (cancelled) return;
+
+        const preferences = await getSessionPreferences();
+        const keepSessionActive = preferences.keepSessionActive;
+        const keepJwt = shouldKeepJwtAlive(keepSessionActive);
+
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        if (cancelled) return;
+
+        if (initialSession) {
+          if (isSessionExpired(initialSession)) {
+            if (keepJwt) {
               const refreshed = await refreshSession();
               if (refreshed) {
                 setSession(refreshed);
               } else {
-                await supabase.auth.signOut();
+                await signOutDesktopCleanup();
                 setSession(null);
               }
             } else {
-              console.log('Sesión expirada, cerrando sesión...');
-              await supabase.auth.signOut();
+              await signOutDesktopCleanup();
               setSession(null);
             }
           } else {
-            setSession(session);
+            setSession(initialSession);
           }
         } else {
           setSession(null);
-          try { sessionStorage.removeItem('settingsAppReleasesUnlocked'); } catch (_) {}
         }
+      } catch (e) {
+        console.error('useAuth init:', e);
+        setSession(null);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+      if (!cancelled) {
+        void electronPersistAndEnforce(setSession);
+      }
+    };
+
+    void init();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === 'SIGNED_OUT') {
+        setSession(null);
         setLoading(false);
-      });
+        void clearElectronDeviceSessionFile();
+        try {
+          sessionStorage.removeItem('settingsAppReleasesUnlocked');
+        } catch (_) {}
+        return;
+      }
+
+      if (!nextSession) {
+        setSession(null);
+        setLoading(false);
+        try {
+          sessionStorage.removeItem('settingsAppReleasesUnlocked');
+        } catch (_) {}
+        return;
+      }
+
+      if (!isSessionExpired(nextSession)) {
+        setSession(nextSession);
+      }
+
+      setLoading(false);
+
+      void (async () => {
+        try {
+          const prefs = await getSessionPreferences();
+          const keepJwt = shouldKeepJwtAlive(prefs.keepSessionActive);
+
+          if (isSessionExpired(nextSession)) {
+            if (keepJwt) {
+              const refreshed = await refreshSession();
+              if (refreshed) {
+                setSession(refreshed);
+                const persistOk = await persistIfElectron(event, refreshed);
+                if (!persistOk) {
+                  setSession(null);
+                  return;
+                }
+                await enforceServerDeviceSession(setSession);
+              } else {
+                await signOutDesktopCleanup();
+                setSession(null);
+              }
+            } else {
+              await signOutDesktopCleanup();
+              setSession(null);
+            }
+            return;
+          }
+
+          const persistOk = await persistIfElectron(event, nextSession);
+          if (!persistOk) {
+            setSession(null);
+            return;
+          }
+
+          await enforceServerDeviceSession(setSession);
+        } catch (e) {
+          console.error('onAuthStateChange (async):', e);
+          setSession(null);
+        }
+      })();
     });
 
-    // Verificar periódicamente si la sesión necesita renovación (cada 1 minuto)
     const checkExpirationInterval = setInterval(async () => {
       try {
         const currentPrefs = await getSessionPreferences();
-        const shouldKeepActive = currentPrefs.keepSessionActive;
+        const keepJwt = shouldKeepJwtAlive(currentPrefs.keepSessionActive);
 
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
-        
+
         if (error) {
           console.error('Error al obtener sesión:', error);
-          if (!shouldKeepActive) {
-            setSession(null);
-          }
+          if (!keepJwt) setSession(null);
           return;
         }
-        
+
         if (!currentSession) {
-          if (session) {
-            setSession(null);
-          }
+          if (sessionRef.current) setSession(null);
           return;
+        }
+
+        if (window.electronAPI?.deviceSession) {
+          touchCounter += 1;
+          if (touchCounter % 15 === 0) {
+            const hr = await heartbeatElectronDeviceSession();
+            if (!hr.ok && !hr.softError && !hr.skipped) {
+              await signOutDesktopCleanup();
+              setSession(null);
+            }
+          }
         }
 
         if (isSessionExpired(currentSession)) {
-          if (shouldKeepActive) {
-            // Intentar renovar la sesión
-            console.log('Sesión expirada detectada, renovando...');
+          if (keepJwt) {
             const refreshed = await refreshSession();
             if (refreshed) {
               setSession(refreshed);
+              await persistElectronDeviceSession(refreshed);
+              await enforceServerDeviceSession(setSession);
             } else {
-              // Si no se puede renovar después de varios intentos, cerrar sesión
-              console.warn('No se pudo renovar la sesión, cerrando...');
-              await supabase.auth.signOut();
+              await signOutDesktopCleanup();
               setSession(null);
             }
           } else {
-            console.log('Sesión expirada detectada, cerrando sesión...');
-            await supabase.auth.signOut();
+            await signOutDesktopCleanup();
             setSession(null);
           }
-        } else if (isSessionNearExpiry(currentSession) && shouldKeepActive) {
-          // Renovar antes de que expire si la opción está activada
-          console.log('Sesión cerca de expirar, renovando preventivamente...');
+        } else if (isSessionNearExpiry(currentSession) && keepJwt) {
           const refreshed = await refreshSession();
           if (refreshed) {
             setSession(refreshed);
+            await persistElectronDeviceSession(refreshed);
+            await enforceServerDeviceSession(setSession);
           }
-        } else if (currentSession?.access_token !== session?.access_token) {
-          // Solo actualizar si realmente cambió
+        } else if (currentSession?.access_token !== sessionRef.current?.access_token) {
           setSession(currentSession);
         }
       } catch (err) {
         console.error('Error al verificar expiración de sesión:', err);
       }
-    }, 60000); // Verificar cada 1 minuto
+    }, 60000);
 
-    // Limpiar suscripción e intervalo al desmontar
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!sessionRef.current || !window.electronAPI?.deviceSession) return;
+      void (async () => {
+        const hr = await heartbeatElectronDeviceSession();
+        if (!hr.ok && !hr.softError && !hr.skipped) {
+          await signOutDesktopCleanup();
+          setSession(null);
+        }
+      })();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
     return () => {
+      cancelled = true;
       subscription.unsubscribe();
       clearInterval(checkExpirationInterval);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
-    });
-  }, [session?.access_token]);
+  }, []);
 
   return { session, loading };
 }
-

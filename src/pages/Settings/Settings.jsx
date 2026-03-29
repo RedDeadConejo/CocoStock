@@ -40,44 +40,22 @@ import {
   activateAppRelease,
   PLATFORM_OPTIONS,
 } from '../../services/appReleases';
-import { startLocalServer, stopLocalServer, getServerStatus } from '../../services/localServer';
-import { registerMermaServerToken, unregisterMermaServerToken } from '../../services/merma';
+import { stopLocalServer, getServerStatus } from '../../services/localServer';
+import { unregisterMermaServerToken } from '../../services/merma';
+import { startConfiguredLocalServers } from '../../services/localServerStartup';
+import { loadLocalServersFromStorage, saveLocalServersToStorage } from '../../utils/localServersStorage';
 import { useRole, clearRoleCache } from '../../hooks/useRole';
 import { supabase } from '../../services/supabase';
 import './Settings.css';
 
-const LOCAL_SERVERS_STORAGE_KEY = 'cocostock_local_servers';
-
-async function loadLocalServersFromStorage() {
-  try {
-    const { getItem } = await import('../../utils/secureStorage');
-    const stored = await getItem(LOCAL_SERVERS_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return Array.isArray(parsed) ? parsed : [];
-    }
-    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(LOCAL_SERVERS_STORAGE_KEY) : null;
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    }
-  } catch (e) {
-    console.warn('Error al cargar servidores locales:', e);
-  }
-  return [];
-}
-
-async function saveLocalServersToStorage(list) {
-  try {
-    const { setItem } = await import('../../utils/secureStorage');
-    await setItem(LOCAL_SERVERS_STORAGE_KEY, JSON.stringify(list));
-  } catch (e) {
-    console.warn('Error al guardar servidores locales:', e);
-  }
-}
-
 function isElectron() {
   return typeof window !== 'undefined' && window.electronAPI;
+}
+
+/** Releases / subida de instaladores: rol admin o permiso explícito (alineado con RLS de Storage). */
+function userCanManageAppReleases(roleName, permissions) {
+  if (roleName === 'admin') return true;
+  return permissions?.manage_app_releases === true;
 }
 
 function Settings() {
@@ -376,16 +354,16 @@ function Settings() {
       (roleName === 'admin' || permissions?.view_settings_restaurants) && 'restaurants',
       (roleName === 'admin' || permissions?.view_settings_authorized_ips) && 'authorized-ips',
       (roleName === 'admin' || permissions?.view_settings_local_servers) && 'local-servers',
-      roleName === 'admin' && 'app-releases', // Solo admin, oculto
+      userCanManageAppReleases(roleName, permissions) && 'app-releases',
     ].filter(Boolean);
     if (allowed.length && !allowed.includes(activeTab)) {
       setActiveTab(allowed[0]);
     }
   }, [roleName, permissions, activeTab]);
 
-  // Cargar datos de app-releases cuando el admin abre la pestaña
+  // Cargar datos de app-releases cuando quien puede gestionarlos abre la pestaña
   useEffect(() => {
-    if (roleName !== 'admin' || activeTab !== 'app-releases') return;
+    if (!userCanManageAppReleases(roleName, permissions) || activeTab !== 'app-releases') return;
     const load = async () => {
       setLoadingMinVersion(true);
       setLoadingReleases(true);
@@ -401,7 +379,7 @@ function Settings() {
       }
     };
     load();
-  }, [roleName, activeTab]);
+  }, [roleName, permissions?.manage_app_releases, activeTab]);
 
   const loadRoles = async () => {
     try {
@@ -882,7 +860,14 @@ function Settings() {
     setError('');
     setLocalServersList((prev) => [
       ...prev,
-      { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, name, port, mode, ...(mode === 'merma' ? { restaurantId } : {}) },
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name,
+        port,
+        mode,
+        autoStartOnLogin: false,
+        ...(mode === 'merma' ? { restaurantId } : {}),
+      },
     ]);
     setServerFormData({ name: '', port: '8080', mode: 'merma', restaurantId: '' });
     closeServerForm();
@@ -904,50 +889,20 @@ function Settings() {
     }
     setServerLoading(true);
     setServerError('');
-    const tokens = [];
-    const config = [];
     try {
-      for (const s of localServersList) {
-        const base = { port: s.port, mode: s.mode, name: s.name };
-        if (s.mode === 'merma' && s.restaurantId) {
-          const token = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-          await registerMermaServerToken(token, s.restaurantId);
-          tokens.push(token);
-          const restaurant = restaurants.find((r) => r.id === s.restaurantId);
-          config.push({
-            ...base,
-            token,
-            restaurantId: s.restaurantId,
-            restaurantName: restaurant?.nombre || '',
-          });
-        } else {
-          config.push(base);
-        }
-      }
-      const result = await startLocalServer(config);
+      const { success, tokens, result } = await startConfiguredLocalServers(localServersList, restaurants);
       setServerLoading(false);
-      if (result.success) {
+      if (success) {
         setRunningMermaTokens(tokens);
         setServerStatus({ running: true, servers: result.servers || [] });
         setServerError(result.errors?.length ? result.errors.map((e) => `${e.name} (${e.port}): ${e.error}`).join('. ') : '');
       } else {
-        // Si falló el inicio, desregistrar los tokens que ya registramos
-        for (const t of tokens) {
-          try {
-            await unregisterMermaServerToken(t);
-          } catch (_) {}
-        }
         const errMsg = result.error || 'Error al iniciar';
         const extra = result.errors?.length ? ' ' + result.errors.map((e) => `${e.name}: ${e.error}`).join('. ') : '';
         setServerError(errMsg + extra);
       }
     } catch (err) {
       setServerLoading(false);
-      for (const t of tokens) {
-        try {
-          await unregisterMermaServerToken(t);
-        } catch (_) {}
-      }
       setServerError(err.message || 'Error al iniciar servidores');
     }
   };
@@ -1038,12 +993,13 @@ function Settings() {
   }
 
   const isAdmin = roleName === 'admin';
+  const canManageAppReleases = userCanManageAppReleases(roleName, permissions);
   const canSeeTabRoles = isAdmin || permissions.view_settings_roles === true;
   const canSeeTabUsers = isAdmin || permissions.view_settings_users === true;
   const canSeeTabRestaurants = isAdmin || permissions.view_settings_restaurants === true;
   const canSeeTabAuthorizedIps = isAdmin || permissions.view_settings_authorized_ips === true;
   const canSeeTabLocalServers = isAdmin || permissions.view_settings_local_servers === true;
-  const canSeeTabAppReleases = isAdmin && appReleasesUnlocked;
+  const canSeeTabAppReleases = canManageAppReleases && appReleasesUnlocked;
   const canSeeTab = (tab) => {
     if (tab === 'roles') return canSeeTabRoles;
     if (tab === 'users') return canSeeTabUsers;
@@ -1065,7 +1021,7 @@ function Settings() {
 
   // Atajo para admins: 5 clics en "Configuración" en 3 s → muestra pestaña Releases
   const handleReleasesSecretClick = () => {
-    if (roleName !== 'admin') return;
+    if (!canManageAppReleases) return;
     if (releasesSecretTimerRef.current) clearTimeout(releasesSecretTimerRef.current);
     const next = releasesSecretClicks + 1;
     setReleasesSecretClicks(next);
@@ -1882,6 +1838,9 @@ function Settings() {
                 <p style={{ marginTop: '0.75rem', fontSize: '0.9rem', color: '#9CA3AF' }}>
                   Al cerrar la aplicación se invalidan los tokens de merma; las pestañas abiertas de la interfaz de merma dejarán de poder registrar.
                 </p>
+                <p style={{ marginTop: '0.75rem', fontSize: '0.9rem', color: '#9CA3AF' }}>
+                  Marca <strong>Iniciar al iniciar sesión</strong> en cada servidor que quieras arrancar solo al entrar en la app (escritorio). Solo se abren los que aún no estén activos en ese puerto.
+                </p>
               </div>
 
               {showServerForm && (
@@ -2010,6 +1969,31 @@ function Settings() {
                         </button>
                       </div>
                     </div>
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        marginTop: '0.75rem',
+                        fontSize: '0.9rem',
+                        color: '#D1D5DB',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={s.autoStartOnLogin === true}
+                        onChange={(e) =>
+                          setLocalServersList((prev) =>
+                            prev.map((x) =>
+                              x.id === s.id ? { ...x, autoStartOnLogin: e.target.checked } : x
+                            )
+                          )
+                        }
+                      />
+                      Iniciar al iniciar sesión
+                    </label>
                   </div>
                 ))}
                 {localServersList.length === 0 && (
@@ -2071,7 +2055,7 @@ function Settings() {
           <div className="settings-app-releases-section">
             <h3>Subir nuevo release</h3>
             <p className="settings-app-releases-desc">
-              Sube el archivo (.exe, .dmg, .zip) y se registrará en la base de datos. Plataformas: win32, darwin-x64, darwin-arm64, linux.
+              Sube el archivo (.exe, .dmg, .zip) y se registrará en la base de datos. Usa <strong>win32-win7</strong> solo para el instalador legacy (Windows 7); <strong>win32</strong> para Windows 10+. En Android las actualizaciones van por Google Play, no por aquí.
             </p>
             <div className="settings-app-releases-form">
               <div className="settings-form-group">

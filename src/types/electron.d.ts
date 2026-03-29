@@ -33,6 +33,16 @@ interface ElectronAPI {
     openInstaller: (localPath: string) => Promise<{ success: boolean; error?: string }>;
   };
   platform?: string;
+  deviceSession?: {
+    restore: () => Promise<
+      | { ok: true; session: Record<string, unknown> }
+      | { ok: false; reason?: string }
+    >;
+    save: (session: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
+    touch: () => Promise<{ success: boolean }>;
+    clear: () => Promise<{ success: boolean; error?: string }>;
+    getFingerprint: () => Promise<{ fingerprint: string | null; error?: string }>;
+  };
 }
 
 interface Window {

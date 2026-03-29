@@ -1,7 +1,7 @@
 /**
  * Servicio de releases de la app (actualizaciones)
  * Subida a Storage, registros en app_releases, versión mínima en app_version
- * Usa Supabase con RLS: solo Admin puede subir (Storage policy is_user_admin)
+ * Usa Supabase con RLS: Storage exige permiso manage_app_releases (admin lo cumple vía user_has_permission)
  */
 
 import { supabase } from './supabase';
@@ -9,7 +9,8 @@ import { supabase } from './supabase';
 const BUCKET_NAME = 'app-releases';
 
 const PLATFORM_OPTIONS = [
-  { value: 'win32', label: 'Windows (x64)' },
+  { value: 'win32', label: 'Windows 10+ (x64)' },
+  { value: 'win32-win7', label: 'Windows 7 legacy (x64)' },
   { value: 'darwin-x64', label: 'Mac Intel (x64)' },
   { value: 'darwin-arm64', label: 'Mac Apple Silicon (arm64)' },
   { value: 'linux', label: 'Linux (x64)' },
@@ -80,7 +81,7 @@ export async function getAppReleases() {
  * Sube un archivo al bucket app-releases y crea el registro en app_releases
  * @param {object} params
  * @param {string} params.version - Ej: 1.9.5
- * @param {string} params.platform - win32, darwin-x64, darwin-arm64, linux, linux-arm64
+ * @param {string} params.platform - win32, win32-win7, darwin-x64, darwin-arm64, linux, linux-arm64
  * @param {File} params.file - Archivo a subir (.exe, .dmg, .zip)
  * @param {string} [params.releaseNotes] - Notas de la versión
  */
@@ -93,10 +94,20 @@ export async function createAppRelease({ version, platform, file, releaseNotes }
 
   const filePath = file.name || `release-${v}-${p}`;
 
+  await supabase.auth.refreshSession();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user?.id) {
+    throw new Error('Sesión requerida para subir releases.');
+  }
+
+  // upsert:true obliga a SELECT+UPDATE además de INSERT en storage.objects; si falla una política, RLS.
+  // Sustituir: borrar objeto previo (mismo nombre) y subir sin upsert.
+  await supabase.storage.from(BUCKET_NAME).remove([filePath]);
+
   const { error: uploadError } = await supabase.storage
     .from(BUCKET_NAME)
     .upload(filePath, file, {
-      upsert: true,
+      upsert: false,
       contentType: file.type || 'application/octet-stream',
     });
 

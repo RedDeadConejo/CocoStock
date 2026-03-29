@@ -620,7 +620,7 @@ function Statistics() {
     let last30 = 0;
 
     list.forEach((m) => {
-      const qty = parseFloat(m.quantity) || 0;
+      const qty = Math.round(parseFloat(m.quantity) || 0);
       totalCantidad += qty;
       const pid = m.product_id || 'sin-producto';
       const pname = m.product?.nombre || 'Producto';

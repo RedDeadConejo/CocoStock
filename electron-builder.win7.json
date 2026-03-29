@@ -1,0 +1,41 @@
+{
+  "appId": "com.cocostock.app",
+  "productName": "CocoStock",
+  "extraMetadata": {
+    "cocoStockPlatform": "win32-win7"
+  },
+  "electronVersion": "22.3.27",
+  "publish": null,
+  "directories": {
+    "output": "release-win7"
+  },
+  "files": [
+    {
+      "from": "dist-legacy-win7",
+      "to": "dist",
+      "filter": ["**/*"]
+    },
+    "electron/**/*",
+    "node_modules/**/*",
+    "package.json"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "public/logo.ico",
+    "requestedExecutionLevel": "asInvoker",
+    "artifactName": "${productName}-${version}-Win7-Setup.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "deleteAppDataOnUninstall": false,
+    "runAfterFinish": true
+  }
+}

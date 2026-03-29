@@ -11,6 +11,7 @@ import { useSessionCleanup } from './hooks/useSessionCleanup';
 import { unregisterMermaServerToken } from './services/merma';
 import { checkVersion } from './services/version';
 import { supabase } from './services/supabase';
+import { signOutDesktopCleanup } from './services/authSignOut';
 import Auth from './components/Auth/Auth';
 import Layout from './components/Layout/Layout';
 import Merma from './pages/Merma/Merma';
@@ -128,7 +129,7 @@ function App() {
     return (
       <VersionBlockedOverlay
         minimumVersion={versionCheck.minimumVersion}
-        onLogout={() => supabase.auth.signOut()}
+        onLogout={() => signOutDesktopCleanup()}
       />
     );
   }

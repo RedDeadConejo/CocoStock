@@ -49,14 +49,14 @@ npm install
 
 ### 2. Configurar variables de entorno
 
-Crea un archivo `.env.local` en la raíz del proyecto:
+Copia `.env.example` a `.env.local` y sustituye los marcadores por tus valores (Supabase: **Project Settings → API**).
 
-```env
-VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
-VITE_SUPABASE_ANON_KEY=tu_anon_key
+```bash
+cp .env.example .env.local
+# Windows (PowerShell): Copy-Item .env.example .env.local
 ```
 
-> Las credenciales se obtienen en Supabase: **Project Settings → API**.
+**Repositorio público:** no subas `.env`, `.env.local`, claves `service_role`, certificados ni tokens personales. La `anon key` va en el cliente pero es por proyecto; si hubo filtración, rota claves en Supabase. El workflow de GitHub Actions debe usar **secrets** del repo (`VITE_SUPABASE_*`), nunca valores embebidos en el código.
 
 ### 3. Configurar Supabase
 
@@ -87,8 +87,11 @@ npm run electron:dev
 ## Build
 
 ```bash
-# Windows
+# Windows (Windows 10+, Electron y Chromium recientes — línea principal)
 npm run electron:build:win
+
+# Windows 7 / 8.1 (artefacto aparte: Electron 22, renderer para Chromium 108)
+npm run electron:build:win7
 
 # macOS
 npm run electron:build:mac
@@ -97,7 +100,9 @@ npm run electron:build:mac
 npm run electron:build
 ```
 
-Los instaladores se generan en `release/`.
+Los instaladores **principales** van a `release/`. El paquete **Windows 7** se genera en `release-win7/` (instalador `CocoStock-{versión}-Win7-Setup.exe`). En Win7 hace falta sistema actualizado (p. ej. TLS 1.2) para HTTPS contra Supabase.
+
+La rama principal y `npm run electron:build:win` siguen usando las versiones actuales de **Electron** y **Vite** del `package.json`; el target Win7 no las modifica.
 
 ### Build de macOS desde GitHub Actions
 
@@ -133,7 +138,9 @@ Tras descargar los artifacts, sube los archivos al bucket `app-releases` y regis
 ├── supabase/
 │   ├── config.toml               # Configuración de Edge Functions
 │   └── functions/                # create-user, delete-user
-└── vite.config.js
+├── vite.config.js
+├── vite.config.legacy-win7.mjs   # Solo para electron:build:win7
+└── electron-builder.win7.json    # Empaqueta con Electron 22
 ```
 
 ---

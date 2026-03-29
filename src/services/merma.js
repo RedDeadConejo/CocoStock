@@ -7,6 +7,13 @@ import { supabase } from './supabase';
 
 const TABLE_NAME = 'merma';
 
+/** La merma se registra siempre en unidades enteras (sin decimales). */
+export function normalizeMermaQuantity(value) {
+  const n = Math.trunc(Number(value));
+  if (!Number.isFinite(n) || n < 1) return null;
+  return n;
+}
+
 /**
  * Obtiene las mermas de un restaurante
  * @param {string} restaurantId - ID del restaurante
@@ -58,11 +65,16 @@ export async function getMermaByRestaurant(restaurantId, filters = {}) {
  */
 export async function createMerma(mermaData) {
   const { data: { user } } = await supabase.auth.getUser();
-  
+
+  const qty = normalizeMermaQuantity(mermaData.quantity);
+  if (qty === null) {
+    throw new Error('La cantidad debe ser un número entero mayor que 0 (unidades)');
+  }
+
   const merma = {
     restaurant_id: mermaData.restaurant_id,
     product_id: mermaData.product_id,
-    quantity: parseFloat(mermaData.quantity) || 0,
+    quantity: qty,
     motivo: mermaData.motivo ? String(mermaData.motivo).trim() : null,
     fecha: mermaData.fecha ? new Date(mermaData.fecha).toISOString() : new Date().toISOString(),
     created_by: user?.id || null,
@@ -187,11 +199,15 @@ export async function unregisterMermaServerToken(token) {
  * Crea una merma desde la interfaz local (sin sesión) usando el token del servidor.
  */
 export async function createMermaWithToken(token, restaurantId, mermaData) {
+  const qty = normalizeMermaQuantity(mermaData.quantity);
+  if (qty === null) {
+    throw new Error('La cantidad debe ser un número entero mayor que 0 (unidades)');
+  }
   const { data, error } = await supabase.rpc('create_merma_with_token', {
     p_token: token,
     p_restaurant_id: restaurantId,
     p_product_id: mermaData.product_id,
-    p_quantity: parseFloat(mermaData.quantity) || 0,
+    p_quantity: qty,
     p_motivo: mermaData.motivo ? String(mermaData.motivo).trim() : null,
     p_fecha: mermaData.fecha ? new Date(mermaData.fecha).toISOString() : new Date().toISOString(),
   });

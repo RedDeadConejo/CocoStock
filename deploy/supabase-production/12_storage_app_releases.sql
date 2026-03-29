@@ -3,7 +3,7 @@
 -- ============================================
 -- Políticas para el bucket app-releases:
 --   - Solo usuarios autenticados pueden descargar (SELECT)
---   - Solo usuarios con rol Admin pueden subir/actualizar/eliminar releases (INSERT/UPDATE/DELETE)
+--   - Escritura: is_user_admin O user_has_permission(..., 'manage_app_releases')
 --
 -- IMPORTANTE: El bucket app-releases debe ser PRIVADO (no público).
 -- Si no existe: Supabase Dashboard → Storage → New bucket → id: app-releases → Private.
@@ -12,15 +12,16 @@
 -- ========== POLÍTICAS EN storage.objects ==========
 -- RLS ya está habilitado por defecto en storage.objects
 
--- SELECT: Solo usuarios autenticados pueden descargar (leer objetos)
+-- SELECT: anon + authenticated (coherente con app_releases legible sin sesión; ver 21 si solo faltaba esto en prod)
 DROP POLICY IF EXISTS "Usuarios autenticados pueden descargar releases" ON storage.objects;
-CREATE POLICY "Usuarios autenticados pueden descargar releases"
+DROP POLICY IF EXISTS "CocoStock app-releases SELECT anon authenticated v1" ON storage.objects;
+CREATE POLICY "CocoStock app-releases SELECT anon authenticated v1"
 ON storage.objects
 FOR SELECT
-TO authenticated
+TO anon, authenticated
 USING (bucket_id = 'app-releases');
 
--- INSERT: Solo Admin puede subir releases
+-- INSERT
 DROP POLICY IF EXISTS "Solo Admin puede subir releases" ON storage.objects;
 CREATE POLICY "Solo Admin puede subir releases"
 ON storage.objects
@@ -28,7 +29,10 @@ FOR INSERT
 TO authenticated
 WITH CHECK (
   bucket_id = 'app-releases'
-  AND public.is_user_admin(auth.uid())
+  AND (
+    public.is_user_admin(COALESCE((SELECT auth.uid()), (((SELECT auth.jwt())->>'sub')::uuid)))
+    OR public.user_has_permission(COALESCE((SELECT auth.uid()), (((SELECT auth.jwt())->>'sub')::uuid)), 'manage_app_releases')
+  )
 );
 
 -- UPDATE: Solo Admin puede actualizar/reemplazar releases
@@ -39,11 +43,17 @@ FOR UPDATE
 TO authenticated
 USING (
   bucket_id = 'app-releases'
-  AND public.is_user_admin(auth.uid())
+  AND (
+    public.is_user_admin(COALESCE((SELECT auth.uid()), (((SELECT auth.jwt())->>'sub')::uuid)))
+    OR public.user_has_permission(COALESCE((SELECT auth.uid()), (((SELECT auth.jwt())->>'sub')::uuid)), 'manage_app_releases')
+  )
 )
 WITH CHECK (
   bucket_id = 'app-releases'
-  AND public.is_user_admin(auth.uid())
+  AND (
+    public.is_user_admin(COALESCE((SELECT auth.uid()), (((SELECT auth.jwt())->>'sub')::uuid)))
+    OR public.user_has_permission(COALESCE((SELECT auth.uid()), (((SELECT auth.jwt())->>'sub')::uuid)), 'manage_app_releases')
+  )
 );
 
 -- DELETE: Solo Admin puede eliminar releases
@@ -54,8 +64,11 @@ FOR DELETE
 TO authenticated
 USING (
   bucket_id = 'app-releases'
-  AND public.is_user_admin(auth.uid())
+  AND (
+    public.is_user_admin(COALESCE((SELECT auth.uid()), (((SELECT auth.jwt())->>'sub')::uuid)))
+    OR public.user_has_permission(COALESCE((SELECT auth.uid()), (((SELECT auth.jwt())->>'sub')::uuid)), 'manage_app_releases')
+  )
 );
 
 -- Comentarios
-COMMENT ON TABLE storage.objects IS 'Políticas de app-releases: descarga solo autenticados, subida solo Admin';
+COMMENT ON TABLE storage.objects IS 'Políticas app-releases: lectura autenticados; escritura is_user_admin o manage_app_releases';

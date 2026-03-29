@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS user_roles (
 );
 
 INSERT INTO user_roles (role_name, description, permissions) VALUES
-  ('admin', 'Administrador - Acceso completo', '{"view_dashboard":true,"view_inventory":true,"edit_inventory":true,"manage_stock":true,"manage_suppliers":true,"view_statistics":true,"edit_statistics":true,"manage_users":true,"manage_settings":true}'::jsonb),
+  ('admin', 'Administrador - Acceso completo', '{"view_dashboard":true,"view_inventory":true,"edit_inventory":true,"manage_stock":true,"manage_suppliers":true,"view_statistics":true,"edit_statistics":true,"manage_users":true,"manage_settings":true,"manage_app_releases":true}'::jsonb),
   ('almacen', 'Almacén - Gestión de stock', '{"view_dashboard":true,"view_inventory":true,"edit_inventory":true,"manage_stock":true,"view_statistics":true}'::jsonb),
   ('tienda', 'Tienda - Ventas y productos', '{"view_dashboard":true,"view_inventory":true,"view_statistics":true}'::jsonb)
 ON CONFLICT (role_name) DO NOTHING;

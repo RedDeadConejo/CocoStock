@@ -1,22 +1,64 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
-import { fileURLToPath, pathToFileURL } from 'url';
-import { dirname, join } from 'path';
-import { existsSync } from 'fs';
-import { startLocalServer, stopLocalServer, getServerStatus } from './localServer.js';
-import { getAuthorizedIps, saveAuthorizedIps, getActiveAuthorizedIps } from './authorizedIpsStorage.js';
-import { downloadUpdate, getDownloadProgress, cancelDownload } from './updater.js';
+/**
+ * Punto de entrada Electron (CommonJS) — compatible Electron 22 (Win7) y Electron 33+.
+ * No usar .js con "type":"module" aquí: ERR_REQUIRE_ESM / carga del main en versiones antiguas.
+ */
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { pathToFileURL } = require('url');
+const { join } = require('path');
+const { existsSync, readFileSync } = require('fs');
+const os = require('os');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const { startLocalServer, stopLocalServer, getServerStatus } = require('./localServer.cjs');
+const { getAuthorizedIps, saveAuthorizedIps, getActiveAuthorizedIps } = require('./authorizedIpsStorage.cjs');
+const { downloadUpdate, getDownloadProgress, cancelDownload } = require('./updater.cjs');
+const {
+  restoreDeviceSession,
+  saveDeviceSession,
+  touchDeviceSession,
+  clearDeviceSession,
+} = require('./deviceSessionStorage.cjs');
+const { getMachineFingerprint } = require('./machineFingerprint.cjs');
 
-// Mantener una referencia global del objeto window
 let mainWindow;
-
-// Tokens de servidor merma activos (para invalidar al cerrar la app)
 let storedMermaTokens = [];
 
+/**
+ * Clave de plataforma para el renderer (actualizaciones). Se lee en el proceso principal
+ * para no usar fs en el preload: en Win7 + app empaquetada el preload podía fallar y no exponer electronAPI.
+ */
+function getRendererPlatformKeyForPreload() {
+  const pkgRoot = app.isPackaged ? app.getAppPath() : join(__dirname, '..');
+  try {
+    const pkgPath = join(pkgRoot, 'package.json');
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+    if (typeof pkg.cocoStockPlatform === 'string' && pkg.cocoStockPlatform.trim()) {
+      return pkg.cocoStockPlatform.trim();
+    }
+  } catch (err) {
+    console.warn('CocoStock: package.json / cocoStockPlatform:', err.message);
+  }
+  const platform = process.platform || 'win32';
+  const arch = process.arch || 'x64';
+  if (platform === 'darwin') return arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64';
+  if (platform === 'linux') return arch === 'arm64' ? 'linux-arm64' : 'linux';
+  if (platform === 'win32') {
+    const rel = (os.release() || '').split('.');
+    const maj = parseInt(rel[0], 10);
+    const min = parseInt(rel[1], 10);
+    if (maj === 6 && min === 1) return 'win32-win7';
+  }
+  return platform;
+}
+
 function createWindow() {
-  // Crear la ventana del navegador
+  const platformKeyForPreload = getRendererPlatformKeyForPreload();
+  const preloadPath = app.isPackaged
+    ? join(app.getAppPath(), 'electron', 'preload.cjs')
+    : join(__dirname, 'preload.cjs');
+  const indexPathProd = app.isPackaged
+    ? join(app.getAppPath(), 'dist', 'index.html')
+    : join(__dirname, '../dist/index.html');
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -27,82 +69,80 @@ function createWindow() {
       contextIsolation: true,
       enableRemoteModule: false,
       webSecurity: true,
-      preload: join(__dirname, 'preload.cjs'),
+      sandbox: false,
+      additionalArguments: [`--cocostock-platform=${platformKeyForPreload}`],
+      preload: preloadPath,
     },
-    icon: join(__dirname, '../public/logo.png'), // Icono de la app
-    show: false, // No mostrar hasta que esté listo
+    icon: join(__dirname, '../public/logo.png'),
+    show: false,
   });
 
-  // Cargar la aplicación
+  mainWindow.webContents.on('preload-error', (event, preloadPathArg, error) => {
+    console.error('CocoStock preload-error:', preloadPathArg, error);
+  });
+
   const isDev = process.env.NODE_ENV === 'development';
-  
+
   if (isDev) {
-    // En desarrollo, cargar desde el servidor de Vite
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    // En producción, cargar desde los archivos construidos.
-    // En macOS el .app usa rutas distintas; file:// evita ventana en negro.
-    const indexPath = join(__dirname, '../dist/index.html');
-    if (existsSync(indexPath)) {
+    if (existsSync(indexPathProd)) {
       if (process.platform === 'darwin') {
-        mainWindow.loadURL(pathToFileURL(indexPath).href);
+        mainWindow.loadURL(pathToFileURL(indexPathProd).href);
       } else {
-        mainWindow.loadFile(indexPath);
+        mainWindow.loadFile(indexPathProd);
       }
     } else {
-      console.error('No se encontró el archivo index.html en dist/', indexPath);
+      console.error('No se encontró index.html en dist:', indexPathProd);
     }
   }
 
-  // Mostrar la ventana cuando esté lista
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-    
-    // Enfocar la ventana
     if (isDev) {
       mainWindow.focus();
     }
   });
 
-  // Abrir DevTools en desarrollo
   if (isDev) {
     mainWindow.webContents.openDevTools();
   }
 
-  // Emitido cuando la ventana es cerrada
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
-// Este método se ejecutará cuando Electron haya terminado de inicializarse
 app.whenReady().then(() => {
   createWindow();
 
   app.on('activate', () => {
-    // En macOS es común recrear una ventana cuando se hace clic en el icono
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });
 });
 
-// Salir cuando todas las ventanas estén cerradas, excepto en macOS
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
-// Manejar errores de carga
 app.on('web-contents-created', (event, contents) => {
-  contents.on('did-fail-load', (event, errorCode, errorDescription) => {
+  contents.on('did-fail-load', (ev, errorCode, errorDescription) => {
     console.error('Error al cargar:', errorCode, errorDescription);
   });
 });
 
-// IPC Handlers para IPs autorizadas (almacenamiento local cifrado)
+ipcMain.handle('os:info', () => ({
+  platform: process.platform,
+  release: os.release(),
+  arch: process.arch,
+  updaterKey: getRendererPlatformKeyForPreload(),
+}));
+
 ipcMain.handle('authorized-ips:get', async () => {
   try {
     const userDataPath = app.getPath('userData');
@@ -124,16 +164,16 @@ ipcMain.handle('authorized-ips:save', async (event, list = []) => {
   }
 });
 
-// IPC Handlers para el servidor local (varios servidores: merma, app completa, etc.)
 ipcMain.handle('local-server:start', async (event, serversConfig = [], supabaseUrl = null, supabaseAnonKey = null) => {
   try {
     const userDataPath = app.getPath('userData');
     const authorizedIpsList = getActiveAuthorizedIps(userDataPath);
     const result = await startLocalServer(serversConfig, supabaseUrl, supabaseAnonKey, authorizedIpsList);
     if (result.success && Array.isArray(serversConfig)) {
-      storedMermaTokens = serversConfig
+      const batch = serversConfig
         .filter((c) => c.mode === 'merma' && c.token)
         .map((c) => c.token);
+      storedMermaTokens = [...storedMermaTokens, ...batch];
     }
     return result;
   } catch (error) {
@@ -161,7 +201,53 @@ ipcMain.handle('local-server:status', async () => {
   return getServerStatus();
 });
 
-// IPC Handlers para actualizaciones (descarga desde Supabase Storage u otra URL)
+ipcMain.handle('device-session:restore', async () => {
+  try {
+    return restoreDeviceSession(app.getPath('userData'));
+  } catch (err) {
+    console.error('device-session:restore', err);
+    return { ok: false, reason: 'error' };
+  }
+});
+
+ipcMain.handle('device-session:save', async (event, session) => {
+  try {
+    if (!session || typeof session !== 'object' || !session.refresh_token) {
+      return { success: false };
+    }
+    saveDeviceSession(app.getPath('userData'), session);
+    return { success: true };
+  } catch (err) {
+    console.error('device-session:save', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('device-session:touch', async () => {
+  try {
+    return { success: touchDeviceSession(app.getPath('userData')) };
+  } catch {
+    return { success: false };
+  }
+});
+
+ipcMain.handle('device-session:clear', async () => {
+  try {
+    clearDeviceSession(app.getPath('userData'));
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('device-session:get-fingerprint', () => {
+  try {
+    return { fingerprint: getMachineFingerprint() };
+  } catch (err) {
+    return { fingerprint: null, error: err.message };
+  }
+});
+
 ipcMain.handle('updater:download', async (event, downloadUrl, fileName = null) => {
   try {
     const userDataPath = app.getPath('userData');
@@ -193,7 +279,6 @@ ipcMain.handle('updater:open-installer', async (event, localPath) => {
   }
 });
 
-// Detener el servidor e invalidar tokens de merma cuando la aplicación se cierra
 app.on('before-quit', async (event) => {
   await stopLocalServer();
 
@@ -209,15 +294,8 @@ app.on('before-quit', async (event) => {
 
   if (mainWindow && !mainWindow.isDestroyed()) {
     try {
+      // No borrar sb-/supabase en localStorage: la sesión de escritorio persiste (device_session.enc).
       mainWindow.webContents.executeJavaScript(`
-        if (window.localStorage) {
-          const keys = Object.keys(window.localStorage);
-          keys.forEach(key => {
-            if (key.startsWith('sb-') || key.includes('supabase')) {
-              window.localStorage.removeItem(key);
-            }
-          });
-        }
         if (window.sessionStorage) {
           const keys = Object.keys(window.sessionStorage);
           keys.forEach(key => {
@@ -226,7 +304,7 @@ app.on('before-quit', async (event) => {
             }
           });
         }
-      `).catch(err => {
+      `).catch((err) => {
         console.error('Error al limpiar sesión:', err);
       });
     } catch (err) {
@@ -234,4 +312,3 @@ app.on('before-quit', async (event) => {
     }
   }
 });
-

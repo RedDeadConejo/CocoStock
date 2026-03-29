@@ -9,13 +9,25 @@ lerna-debug.log*
 
 node_modules
 dist
+dist-legacy-win7
 dist-ssr
 *.local
 
-# Variables de entorno (secretos)
+# --- Secretos y entornos locales (NO subir a repos públicos) ---
+# Credenciales reales: usa `.env.local` (ignorado). Plantilla versionada: `.env.example`.
 .env
 .env.*
 !.env.example
+
+# Claves y certificados (por si añades firma, push, etc.)
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Firebase / móvil (si los usas más adelante)
+google-services.json
+GoogleService-Info.plist
 
 # Editor directories and files
 .vscode/*
@@ -35,4 +47,5 @@ dist-ssr
 
 # Electron
 release/
+release-win7/
 dist-electron/

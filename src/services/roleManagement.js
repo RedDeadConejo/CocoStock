@@ -441,6 +441,7 @@ export function getAvailablePermissions() {
     view_settings_restaurants: 'Config: ver pestaña Restaurantes',
     view_settings_authorized_ips: 'Config: ver pestaña IPs Autorizadas',
     view_settings_local_servers: 'Config: ver pestaña Servidores locales',
+    manage_app_releases: 'Subir instaladores / gestionar releases de la app (Storage + RLS)',
     create_server_merma: 'Crear servidor local tipo Merma',
     create_server_full: 'Crear servidor local tipo App completa',
     // Permisos de acción

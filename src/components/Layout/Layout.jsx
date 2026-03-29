@@ -3,8 +3,9 @@
  * Contenedor principal con sidebar y área de contenido
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../services/supabase';
+import { signOutDesktopCleanup } from '../../services/authSignOut';
 import { getViewPermissionsMap } from '../../services/roleManagement';
 import Dashboard from '../../pages/Dashboard/Dashboard';
 import Inventory from '../../pages/Inventory/Inventory';
@@ -18,7 +19,11 @@ import Account from '../../pages/Account/Account';
 import Settings from '../../pages/Settings/Settings';
 import Sidebar from './Sidebar';
 import RoleGuard, { ROLES } from '../RoleGuard/RoleGuard';
-import { useRole, clearRoleCache } from '../../hooks/useRole';
+import { useRole } from '../../hooks/useRole';
+import { loadLocalServersFromStorage } from '../../utils/localServersStorage';
+import { getRestaurants } from '../../services/restaurants';
+import { startConfiguredLocalServers } from '../../services/localServerStartup';
+import { getServerStatus } from '../../services/localServer';
 import './Layout.css';
 
 /** Solo admin por defecto; el resto de roles obtienen permisos desde la BD */
@@ -41,7 +46,8 @@ function Layout({ session }) {
   const [isMobile, setIsMobile] = useState(false);
   const [viewPermissionsMap, setViewPermissionsMap] = useState(null);
   const userId = session?.user?.id;
-  const { roleName, loading: roleLoading, error: roleError } = useRole(userId);
+  const { roleName, loading: roleLoading, error: roleError, permissions } = useRole(userId);
+  const localServersAutoStartedRef = useRef(false);
 
   const loadViewPermissionsMap = () => {
     getViewPermissionsMap()
@@ -96,6 +102,51 @@ function Layout({ session }) {
     return () => clearTimeout(timeout);
   }, [userId, roleLoading]);
 
+  useEffect(() => {
+    localServersAutoStartedRef.current = false;
+  }, [userId]);
+
+  // Auto-inicio de servidores locales marcados en Ajustes (solo Electron, tras login)
+  useEffect(() => {
+    if (!showContent || roleLoading || !userId) return;
+    if (typeof window === 'undefined' || !window.electronAPI) return;
+    const canAutoStart = roleName === 'admin' || permissions?.view_settings_local_servers === true;
+    if (!canAutoStart) return;
+    if (localServersAutoStartedRef.current) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const list = await loadLocalServersFromStorage();
+        const marked = (list || []).filter((s) => s.autoStartOnLogin === true);
+        const valid = marked.filter((s) => !(s.mode === 'merma' && !s.restaurantId));
+        if (valid.length === 0) {
+          if (!cancelled) localServersAutoStartedRef.current = true;
+          return;
+        }
+        const status = await getServerStatus();
+        const runningPorts = new Set((status.servers || []).map((s) => Number(s.port)));
+        const needStart = valid.filter((s) => !runningPorts.has(Number(s.port)));
+        if (needStart.length === 0) {
+          if (!cancelled) localServersAutoStartedRef.current = true;
+          return;
+        }
+        const restaurants = await getRestaurants();
+        if (cancelled) return;
+        await startConfiguredLocalServers(needStart, restaurants || []);
+      } catch (e) {
+        console.warn('[Layout] Auto-inicio servidores locales:', e?.message || e);
+      } finally {
+        if (!cancelled) localServersAutoStartedRef.current = true;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showContent, roleLoading, userId, roleName, permissions?.view_settings_local_servers]);
+
   // Detectar si estamos en móvil y ajustar el sidebar inicialmente
   useEffect(() => {
     const checkMobile = () => {
@@ -131,13 +182,11 @@ function Layout({ session }) {
     console.log('Iniciando cierre de sesión...');
     
     try {
-      // Cerrar sesión en Supabase primero (esto disparará onAuthStateChange automáticamente)
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error('Error al cerrar sesión en Supabase:', error);
-      } else {
+      try {
+        await signOutDesktopCleanup();
         console.log('Sesión cerrada correctamente en Supabase');
+      } catch (err) {
+        console.error('Error al cerrar sesión en Supabase:', err);
       }
 
       // Limpiar el localStorage de Supabase después de cerrar sesión

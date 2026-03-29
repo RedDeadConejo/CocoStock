@@ -3,14 +3,15 @@
  * Vista de perfil de usuario
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { getSessionPreferences, setKeepSessionActive } from '../../utils/sessionPreferences';
-import { getLatestRelease } from '../../services/updater';
+import { getLatestRelease, startElectronReleaseDownload } from '../../services/updater';
+import { executeUpdaterDownload } from '../../utils/electronUpdaterUi';
 import { APP_VERSION } from '../../constants/version';
 import './Account.css';
 
 function isElectron() {
-  return typeof window !== 'undefined' && window.electronAPI?.updater;
+  return typeof window !== 'undefined' && !!window.electronAPI;
 }
 
 function Account({ session }) {
@@ -24,7 +25,6 @@ function Account({ session }) {
   const [downloadProgress, setDownloadProgress] = useState(null);
   const [downloadedPath, setDownloadedPath] = useState(null);
   const [downloadError, setDownloadError] = useState(null);
-  const progressIntervalRef = useRef(null);
 
   useEffect(() => {
     getSessionPreferences().then((prefs) => setKeepSessionActiveState(prefs.keepSessionActive));
@@ -42,7 +42,27 @@ function Account({ session }) {
       } else if (result.available) {
         setUpdateInfo(result);
       } else {
-        setMessage('Tienes la última versión instalada (' + APP_VERSION + ').');
+        let osSuffix = '';
+        let osInfo = null;
+        try {
+          osInfo = await window.electronAPI?.getOsInfo?.();
+          if (osInfo) {
+            osSuffix = ` SO: ${osInfo.platform} · ${osInfo.release} · ${osInfo.arch} · actualizaciones: ${osInfo.updaterKey}`;
+          }
+        } catch {
+          /* ignorar */
+        }
+        const line = result.hint
+          ? `${result.hint}${osSuffix}`
+          : `Tienes la última versión instalada (${APP_VERSION}).${osSuffix}`;
+        setMessage(line);
+        console.log('[CocoStock actualizaciones] Comprobación.', {
+          appVersion: APP_VERSION,
+          latestInServer: result.latestVersion ?? null,
+          hint: result.hint,
+          newerOnOtherPlatform: result.newerOnOtherPlatform,
+          ...osInfo,
+        });
       }
     } catch (err) {
       setMessage('Error al comprobar actualizaciones: ' + err.message);
@@ -52,45 +72,23 @@ function Account({ session }) {
   };
 
   const handleDownloadUpdate = async () => {
-    if (!isElectron() || !updateInfo?.downloadUrl) return;
+    if (!isElectron() || !updateInfo?.available) return;
+    if (!updateInfo.filePath && !updateInfo.downloadUrl) return;
     setDownloadError(null);
     setDownloadedPath(null);
     setDownloadProgress({ percent: 0, bytesDownloaded: 0, totalBytes: 0 });
-    const api = window.electronAPI.updater;
-    const downloadPromise = api.download(updateInfo.downloadUrl, updateInfo.filePath || null);
-    progressIntervalRef.current = setInterval(async () => {
-      const p = await api.getProgress();
-      setDownloadProgress(p);
-    }, 300);
-    try {
-      const result = await downloadPromise;
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-        progressIntervalRef.current = null;
-      }
-      setDownloadProgress(null);
-      if (result.success && result.localPath) {
-        setDownloadedPath(result.localPath);
-      } else {
-        setDownloadError(result.error || 'Error en la descarga');
-      }
-    } catch (err) {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-        progressIntervalRef.current = null;
-      }
-      setDownloadProgress(null);
-      setDownloadError(err.message || 'Error en la descarga');
+    const started = await startElectronReleaseDownload(updateInfo);
+    const result = await executeUpdaterDownload(started, setDownloadProgress);
+    if (result.success && result.localPath) {
+      setDownloadedPath(result.localPath);
+    } else {
+      setDownloadError(result.error || 'Error en la descarga');
     }
   };
 
   const handleCancelDownload = async () => {
     if (window.electronAPI?.updater?.cancelDownload) {
       await window.electronAPI.updater.cancelDownload();
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-        progressIntervalRef.current = null;
-      }
       setDownloadProgress(null);
       setDownloadError('Descarga cancelada');
     }
@@ -105,12 +103,6 @@ function Account({ session }) {
       setMessage('Error al abrir el instalador: ' + err.message);
     }
   };
-
-  useEffect(() => {
-    return () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-    };
-  }, []);
 
   const handleToggleKeepSession = async (enabled) => {
     setSaving(true);
@@ -194,9 +186,11 @@ function Account({ session }) {
                 </label>
               </div>
               <p className="account-setting-description">
-                {keepSessionActive
-                  ? 'La sesión se renovará automáticamente y no expirará hasta que cierres la aplicación o cierres sesión manualmente.'
-                  : 'La sesión expirará según la configuración normal de seguridad. Se renovará automáticamente cuando sea posible, pero puede requerir iniciar sesión nuevamente después de un tiempo de inactividad.'}
+                {isElectron()
+                  ? 'En la aplicación de escritorio la sesión se guarda cifrada en este equipo y Supabase registra el dispositivo: otro PC no puede reutilizar esa sesión y, si pasan más de 2 días sin renovación en el servidor, la app cerrará sesión. El token de acceso se renueva automáticamente mientras uses la app.'
+                  : keepSessionActive
+                    ? 'La sesión se renovará automáticamente y no expirará hasta que cierres la aplicación o cierres sesión manualmente.'
+                    : 'La sesión expirará según la configuración normal de seguridad. Se renovará automáticamente cuando sea posible, pero puede requerir iniciar sesión nuevamente después de un tiempo de inactividad.'}
               </p>
             </div>
           </div>

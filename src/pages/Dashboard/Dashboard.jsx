@@ -515,7 +515,7 @@ function Dashboard({ session, onNavigate, viewPermissionsMap }) {
                         {rest.merma.map((m) => (
                           <li key={m.id} className="dashboard-recent-li">
                             <span className="dashboard-recent-date">{formatDate(m.fecha, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                            <span>{m.product?.nombre || 'Producto'} · {Number(m.quantity)} {m.product?.medida || ''}</span>
+                            <span>{m.product?.nombre || 'Producto'} · {Math.round(Number(m.quantity))} unidades</span>
                           </li>
                         ))}
                       </ul>

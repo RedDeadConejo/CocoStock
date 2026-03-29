@@ -1,31 +1,20 @@
 /**
- * Servidor HTTP Local (múltiples instancias)
- * Sirve la aplicación desde la carpeta dist para acceso remoto en la red local.
- * Soporta varios servidores: uno para merma (IPs autorizadas), otro para app completa, etc.
+ * Servidor HTTP local (CommonJS) — Electron 22 / 33
  */
+const express = require('express');
+const { join } = require('path');
+const { networkInterfaces } = require('os');
+const { createClient } = require('@supabase/supabase-js');
+const { readFileSync, existsSync } = require('fs');
+const { randomUUID } = require('crypto');
 
-import express from 'express';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { networkInterfaces } from 'os';
-import { createClient } from '@supabase/supabase-js';
-import { readFileSync, existsSync } from 'fs';
-import { randomUUID } from 'crypto';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-/** @type {Map<number, { server: import('http').Server, mode: string, name: string }>} */
 const servers = new Map();
 
 let supabaseUrl = null;
 let supabaseAnonKey = null;
 let supabaseClient = null;
 
-/**
- * Configura el cliente de Supabase (para otras funciones si se necesitan)
- */
-export function configureSupabase(url, anonKey) {
+function configureSupabase(url, anonKey) {
   supabaseUrl = url;
   supabaseAnonKey = anonKey;
   if (url && anonKey) {
@@ -34,19 +23,17 @@ export function configureSupabase(url, anonKey) {
 }
 
 function getClientIP(req) {
-  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-         req.headers['x-real-ip'] ||
-         req.connection?.remoteAddress ||
-         req.socket?.remoteAddress ||
-         req.ip ||
-         'unknown';
+  const h = req.headers || {};
+  const xf = h['x-forwarded-for'];
+  const first = xf && String(xf).split(',')[0];
+  return (first && first.trim()) ||
+    h['x-real-ip'] ||
+    (req.connection && req.connection.remoteAddress) ||
+    (req.socket && req.socket.remoteAddress) ||
+    req.ip ||
+    'unknown';
 }
 
-/**
- * Comprueba si la IP está en la lista local (cifrada en disco, pasada al iniciar el servidor)
- * @param {string} ipAddress
- * @param {string[]} authorizedIpsList - Lista de IPs autorizadas (solo activas)
- */
 function isIpAuthorized(ipAddress, authorizedIpsList) {
   if (!ipAddress || ipAddress === 'unknown' || !Array.isArray(authorizedIpsList)) {
     return false;
@@ -55,14 +42,13 @@ function isIpAuthorized(ipAddress, authorizedIpsList) {
   return authorizedIpsList.some((allowed) => String(allowed).trim() === ip);
 }
 
-/**
- * Obtiene la IP local de la máquina
- */
-export function getLocalIP() {
+function getLocalIP() {
   const interfaces = networkInterfaces();
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name] || []) {
-      if (iface.family === 'IPv4' && !iface.internal) {
+      const fam = iface.family;
+      const isV4 = fam === 'IPv4' || fam === 4;
+      if (isV4 && !iface.internal) {
         return iface.address;
       }
     }
@@ -70,19 +56,11 @@ export function getLocalIP() {
   return 'localhost';
 }
 
-/**
- * Crea una app Express para un puerto y modo dados
- * @param {string} distPath
- * @param {number} port
- * @param {string} mode - 'merma' | 'full'
- * @param {{ token?: string, restaurantId?: string, restaurantName?: string, authorizedIpsList?: string[] }} mermaContext - Solo para mode 'merma'
- */
 function createAppForMode(distPath, port, mode, mermaContext = {}) {
   const authorizedIpsList = mermaContext.authorizedIpsList || [];
   const token = mermaContext.token || '';
   const restaurantId = mermaContext.restaurantId || '';
   const restaurantName = mermaContext.restaurantName || '';
-  /** @type {Map<string, { token: string, restaurantId: string }>} */
   const mermaSessionMap = mode === 'merma' ? new Map() : null;
 
   const app = express();
@@ -94,7 +72,6 @@ function createAppForMode(distPath, port, mode, mermaContext = {}) {
 
   app.use(express.json());
 
-  // API merma: todos los datos pasan por el servidor local (el cliente nunca tiene el token)
   if (mode === 'merma' && mermaSessionMap) {
     app.get('/api/products', async (req, res) => {
       if (!isIpAuthorized(req.clientIP, authorizedIpsList)) {
@@ -125,6 +102,11 @@ function createAppForMode(distPath, port, mode, mermaContext = {}) {
         res.status(400).json({ error: 'Faltan session_id o product_id' });
         return;
       }
+      const qtyInt = Math.trunc(Number(quantity));
+      if (!Number.isFinite(qtyInt) || qtyInt < 1) {
+        res.status(400).json({ error: 'La cantidad debe ser un entero mayor que 0 (unidades)' });
+        return;
+      }
       const session = mermaSessionMap.get(String(session_id));
       if (!session) {
         res.status(401).json({ error: 'Sesión no válida o expirada' });
@@ -139,7 +121,7 @@ function createAppForMode(distPath, port, mode, mermaContext = {}) {
           p_token: session.token,
           p_restaurant_id: session.restaurantId,
           p_product_id: product_id,
-          p_quantity: parseFloat(quantity) || 0,
+          p_quantity: qtyInt,
           p_motivo: motivo ? String(motivo).trim() : null,
           p_fecha: fecha ? new Date(fecha).toISOString() : new Date().toISOString(),
         });
@@ -152,14 +134,7 @@ function createAppForMode(distPath, port, mode, mermaContext = {}) {
     });
   }
 
-  app.use(express.static(distPath, {
-    index: false,
-    setHeaders: (res, path) => {
-      if (path.endsWith('index.html')) {
-        res.setHeader('Cache-Control', 'no-cache');
-      }
-    },
-  }));
+  app.use(express.static(distPath, { index: false }));
 
   app.get('*', async (req, res) => {
     const indexPath = join(distPath, 'index.html');
@@ -169,7 +144,6 @@ function createAppForMode(distPath, port, mode, mermaContext = {}) {
     }
 
     if (mode === 'full') {
-      // App completa: servir index.html sin comprobar IP
       try {
         const html = readFileSync(indexPath, 'utf8');
         res.setHeader('Content-Type', 'text/html');
@@ -182,7 +156,6 @@ function createAppForMode(distPath, port, mode, mermaContext = {}) {
       return;
     }
 
-    // mode === 'merma': verificar IP contra lista local (cifrada en disco)
     const clientIP = req.clientIP;
     const isAuthorized = isIpAuthorized(clientIP, authorizedIpsList);
 
@@ -246,15 +219,7 @@ function createAppForMode(distPath, port, mode, mermaContext = {}) {
   return app;
 }
 
-/**
- * Inicia uno o varios servidores locales
- * @param {Array<{ port: number, mode: string, name?: string }>} serversConfig
- * @param {string} supabaseUrl
- * @param {string} supabaseAnonKey
- * @param {string[]} authorizedIpsList - IPs autorizadas para merma (almacenadas localmente cifradas)
- * @returns {Promise<{ success: boolean, servers?: Array<...>, errors?: Array<...> }>}
- */
-export async function startLocalServer(serversConfig = [], supabaseUrlArg = null, supabaseAnonKeyArg = null, authorizedIpsList = []) {
+async function startLocalServer(serversConfig = [], supabaseUrlArg = null, supabaseAnonKeyArg = null, authorizedIpsList = []) {
   if (serversConfig.length === 0) {
     return { success: true, servers: [] };
   }
@@ -290,11 +255,11 @@ export async function startLocalServer(serversConfig = [], supabaseUrlArg = null
       continue;
     }
 
-    const app = createAppForMode(distPath, port, mode, mermaContext);
+    const exApp = createAppForMode(distPath, port, mode, mermaContext);
 
     try {
       const serverInstance = await new Promise((resolve, reject) => {
-        const srv = app.listen(port, '0.0.0.0', () => {
+        const srv = exApp.listen(port, '0.0.0.0', () => {
           const ip = getLocalIP();
           const url = `http://${ip}:${port}`;
           console.log(`Servidor local [${name}] en ${url} (modo: ${mode})`);
@@ -323,11 +288,7 @@ export async function startLocalServer(serversConfig = [], supabaseUrlArg = null
   };
 }
 
-/**
- * Detiene todos los servidores locales
- * @returns {Promise<boolean>}
- */
-export async function stopLocalServer() {
+async function stopLocalServer() {
   const closePromises = [];
   for (const [port, { server: srv }] of servers.entries()) {
     closePromises.push(
@@ -346,11 +307,7 @@ export async function stopLocalServer() {
   return true;
 }
 
-/**
- * Estado de todos los servidores
- * @returns {{ running: boolean, servers: Array<{ port: number, mode: string, name: string, url: string }> }}
- */
-export function getServerStatus() {
+function getServerStatus() {
   const ip = getLocalIP();
   const list = [];
   for (const [port, { mode, name }] of servers.entries()) {
@@ -366,3 +323,11 @@ export function getServerStatus() {
     servers: list,
   };
 }
+
+module.exports = {
+  configureSupabase,
+  getLocalIP,
+  startLocalServer,
+  stopLocalServer,
+  getServerStatus,
+};
